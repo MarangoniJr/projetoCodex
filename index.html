@@ -5,94 +5,180 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Aplicativo responsivo para consultores registrarem despesas de viagem e prepararem reembolsos."
+      content="Aplicativo responsivo para registrar despesas mensais de viagem, comprovantes e relatório de reembolso."
     />
-    <title>Reembolso Viagem</title>
+    <title>Reembolso de Despesas</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">Consultoria em campo</p>
-        <h1>Reembolso Viagem</h1>
+        <p class="eyebrow">Fechamento mensal</p>
+        <h1>Reembolso de Despesas</h1>
       </div>
-      <button class="icon-button" id="installButton" type="button" hidden title="Instalar app">
-        +
-      </button>
+      <button class="icon-button" id="installButton" type="button" hidden title="Instalar app">+</button>
     </header>
 
     <main class="shell">
-      <section class="summary-grid" aria-label="Resumo financeiro">
+      <section class="summary-grid" aria-label="Resumo do mês">
         <article class="metric accent">
-          <span>Total pendente</span>
-          <strong id="pendingTotal">R$ 0,00</strong>
+          <span>Total do mês</span>
+          <strong id="monthTotal">R$ 0,00</strong>
         </article>
         <article class="metric">
-          <span>Total aprovado</span>
-          <strong id="approvedTotal">R$ 0,00</strong>
+          <span>Comprovantes</span>
+          <strong id="receiptCount">0</strong>
         </article>
         <article class="metric">
-          <span>Despesas</span>
-          <strong id="expenseCount">0</strong>
+          <span>A receber</span>
+          <strong id="refundTotal">R$ 0,00</strong>
         </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>Dados do relatório</h2>
+          <p>Informações que aparecem no topo da planilha enviada ao financeiro.</p>
+        </div>
+
+        <form class="report-form" id="reportForm">
+          <div class="form-row">
+            <label>
+              Mês de referência
+              <input id="reportMonth" name="reportMonth" type="month" required />
+            </label>
+            <label>
+              Nome do consultor
+              <input id="consultant" name="consultant" type="text" required />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Matrícula
+              <input id="registration" name="registration" type="text" />
+            </label>
+            <label>
+              Centro de custo
+              <input id="costCenter" name="costCenter" type="text" />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Viagem de/para
+              <input id="route" name="route" type="text" placeholder="Ex.: Bebedouro / Frutal" />
+            </label>
+            <label>
+              Empresa/local
+              <input id="company" name="company" type="text" />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Motivo da viagem
+              <input id="reason" name="reason" type="text" />
+            </label>
+            <label>
+              Adiantamento recebido
+              <input id="advance" name="advance" type="number" inputmode="decimal" min="0" step="0.01" value="0" />
+            </label>
+          </div>
+
+          <div class="form-row three">
+            <label>
+              Banco
+              <input id="bank" name="bank" type="text" />
+            </label>
+            <label>
+              Agência
+              <input id="agency" name="agency" type="text" />
+            </label>
+            <label>
+              Conta corrente
+              <input id="account" name="account" type="text" />
+            </label>
+          </div>
+
+          <label>
+            Taxa de quilometragem
+            <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" />
+          </label>
+        </form>
       </section>
 
       <section class="panel entry-panel">
         <div class="section-title">
           <h2>Nova despesa</h2>
-          <p>Registre no momento do gasto e exporte depois.</p>
+          <p>Use a câmera do celular para guardar o comprovante junto do lançamento.</p>
         </div>
 
         <form id="expenseForm" autocomplete="off">
-          <label>
-            Viagem ou cliente
-            <input id="trip" name="trip" type="text" placeholder="Ex.: Recife - Cliente Alfa" required />
-          </label>
-
           <div class="form-row">
             <label>
               Data
               <input id="date" name="date" type="date" required />
             </label>
             <label>
-              Valor
-              <input id="amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0,00" required />
+              Tipo
+              <select id="expenseType" name="expenseType" required>
+                <option value="normal">Despesa realizada</option>
+                <option value="car">Carro próprio</option>
+              </select>
             </label>
           </div>
 
-          <div class="form-row">
+          <div class="form-row normal-fields">
             <label>
               Categoria
-              <select id="category" name="category" required>
-                <option value="Alimentação">Alimentação</option>
+              <select id="category" name="category">
+                <option value="Refeição">Refeição</option>
                 <option value="Transporte">Transporte</option>
-                <option value="Hospedagem">Hospedagem</option>
-                <option value="Combustível">Combustível</option>
-                <option value="Pedágio">Pedágio</option>
+                <option value="Hotel">Hotel</option>
+                <option value="Taxi">Taxi</option>
                 <option value="Estacionamento">Estacionamento</option>
+                <option value="Pedágio">Pedágio</option>
                 <option value="Outros">Outros</option>
               </select>
             </label>
             <label>
-              Status
-              <select id="status" name="status">
-                <option value="Pendente">Pendente</option>
-                <option value="Enviado">Enviado</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Rejeitado">Rejeitado</option>
-              </select>
+              Valor
+              <input id="amount" name="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00" />
+            </label>
+          </div>
+
+          <div class="form-row car-fields" hidden>
+            <label>
+              De
+              <input id="from" name="from" type="text" placeholder="Origem" />
+            </label>
+            <label>
+              Para
+              <input id="to" name="to" type="text" placeholder="Destino" />
+            </label>
+          </div>
+
+          <div class="form-row car-fields" hidden>
+            <label>
+              Total km
+              <input id="km" name="km" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+            </label>
+            <label>
+              Estacionamento/Pedágio
+              <input id="carExtra" name="carExtra" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00" />
             </label>
           </div>
 
           <label>
-            Recibo
-            <input id="receipt" name="receipt" type="text" placeholder="Ex.: NF 9021, foto no celular, sem recibo" />
+            Observações
+            <textarea id="notes" name="notes" rows="3" placeholder="Ex.: Almoço QQ, pedágio ida, km cliente"></textarea>
           </label>
 
           <label>
-            Observações
-            <textarea id="notes" name="notes" rows="3" placeholder="Detalhes úteis para o financeiro"></textarea>
+            Foto do comprovante
+            <input id="receiptPhoto" name="receiptPhoto" type="file" accept="image/*" capture="environment" />
           </label>
 
           <button class="primary-button" type="submit">Salvar despesa</button>
@@ -101,29 +187,16 @@
 
       <section class="panel controls-panel">
         <div class="section-title">
-          <h2>Relatório</h2>
-          <p>Filtre, acompanhe e exporte para reembolso.</p>
+          <h2>Fechamento</h2>
+          <p>Exporte o mês com planilha e comprovantes em um único pacote.</p>
         </div>
 
         <div class="toolbar">
           <label>
-            Filtrar viagem
-            <input id="tripFilter" type="search" placeholder="Cliente, cidade ou projeto" />
+            Filtrar mês
+            <input id="monthFilter" type="month" />
           </label>
-          <label>
-            Status
-            <select id="statusFilter">
-              <option value="Todos">Todos</option>
-              <option value="Pendente">Pendente</option>
-              <option value="Enviado">Enviado</option>
-              <option value="Aprovado">Aprovado</option>
-              <option value="Rejeitado">Rejeitado</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="action-row">
-          <button class="secondary-button" id="exportCsv" type="button">Exportar CSV</button>
+          <button class="secondary-button" id="exportPackage" type="button">Exportar pacote do mês</button>
           <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
         </div>
       </section>
@@ -142,8 +215,8 @@
           <strong class="amount"></strong>
         </div>
         <p class="notes"></p>
+        <img class="receipt-preview" alt="Comprovante anexado" hidden />
         <div class="expense-footer">
-          <select class="status-select" aria-label="Alterar status"></select>
           <button class="text-button delete-button" type="button">Excluir</button>
         </div>
       </article>

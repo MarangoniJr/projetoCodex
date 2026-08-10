@@ -1,4 +1,4 @@
-const cacheName = "reembolso-viagem-v1";
+const cacheName = "reembolso-viagem-v2";
 const assets = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg"];
 
 self.addEventListener("install", (event) => {

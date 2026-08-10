@@ -1,18 +1,18 @@
-# Reembolso Viagem
+# Reembolso de Despesas
 
-Aplicativo web responsivo para consultores registrarem despesas de viagem e prepararem relatórios de reembolso.
+Aplicativo web responsivo para registrar despesas mensais de viagem, fotografar comprovantes e gerar um pacote de fechamento para o financeiro.
 
 ## Funcionalidades
 
-- Cadastro de despesas por viagem, data, categoria, valor, status, recibo e observações.
-- Resumo automático de valores pendentes, aprovados e quantidade de despesas.
-- Filtros por viagem/cliente e status.
-- Exportação do relatório filtrado em CSV.
-- Funcionamento no celular e suporte a instalação como PWA.
-- Dados salvos localmente no navegador do dispositivo.
+- Dados mensais do relatório: consultor, matrícula, centro de custo, rota, empresa/local, motivo, adiantamento e dados bancários.
+- Cadastro de despesas realizadas por categoria.
+- Cadastro separado de despesas de carro próprio com origem, destino, quilometragem e estacionamento/pedágio.
+- Campo de foto do comprovante usando a câmera do celular.
+- Resumo mensal de total, comprovantes anexados e saldo a receber.
+- Exportação do mês em pacote `.zip` com planilha `.xls` e imagens dos comprovantes.
 
 ## Como usar
 
 Abra o arquivo `index.html` no navegador.
 
-Para publicar em um servidor estático, envie todos os arquivos deste diretório para o serviço de hospedagem escolhido.
+Os dados ficam salvos no navegador do dispositivo. Para uso em mais de um celular ou computador, será necessário evoluir o app com autenticação e banco de dados.
