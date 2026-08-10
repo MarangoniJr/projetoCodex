@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Aplicativo responsivo para consultores registrarem despesas de viagem e prepararem reembolsos."
+    />
+    <title>Reembolso Viagem</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Consultoria em campo</p>
+        <h1>Reembolso Viagem</h1>
+      </div>
+      <button class="icon-button" id="installButton" type="button" hidden title="Instalar app">
+        +
+      </button>
+    </header>
+
+    <main class="shell">
+      <section class="summary-grid" aria-label="Resumo financeiro">
+        <article class="metric accent">
+          <span>Total pendente</span>
+          <strong id="pendingTotal">R$ 0,00</strong>
+        </article>
+        <article class="metric">
+          <span>Total aprovado</span>
+          <strong id="approvedTotal">R$ 0,00</strong>
+        </article>
+        <article class="metric">
+          <span>Despesas</span>
+          <strong id="expenseCount">0</strong>
+        </article>
+      </section>
+
+      <section class="panel entry-panel">
+        <div class="section-title">
+          <h2>Nova despesa</h2>
+          <p>Registre no momento do gasto e exporte depois.</p>
+        </div>
+
+        <form id="expenseForm" autocomplete="off">
+          <label>
+            Viagem ou cliente
+            <input id="trip" name="trip" type="text" placeholder="Ex.: Recife - Cliente Alfa" required />
+          </label>
+
+          <div class="form-row">
+            <label>
+              Data
+              <input id="date" name="date" type="date" required />
+            </label>
+            <label>
+              Valor
+              <input id="amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0,00" required />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Categoria
+              <select id="category" name="category" required>
+                <option value="Alimentação">Alimentação</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Hospedagem">Hospedagem</option>
+                <option value="Combustível">Combustível</option>
+                <option value="Pedágio">Pedágio</option>
+                <option value="Estacionamento">Estacionamento</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select id="status" name="status">
+                <option value="Pendente">Pendente</option>
+                <option value="Enviado">Enviado</option>
+                <option value="Aprovado">Aprovado</option>
+                <option value="Rejeitado">Rejeitado</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            Recibo
+            <input id="receipt" name="receipt" type="text" placeholder="Ex.: NF 9021, foto no celular, sem recibo" />
+          </label>
+
+          <label>
+            Observações
+            <textarea id="notes" name="notes" rows="3" placeholder="Detalhes úteis para o financeiro"></textarea>
+          </label>
+
+          <button class="primary-button" type="submit">Salvar despesa</button>
+        </form>
+      </section>
+
+      <section class="panel controls-panel">
+        <div class="section-title">
+          <h2>Relatório</h2>
+          <p>Filtre, acompanhe e exporte para reembolso.</p>
+        </div>
+
+        <div class="toolbar">
+          <label>
+            Filtrar viagem
+            <input id="tripFilter" type="search" placeholder="Cliente, cidade ou projeto" />
+          </label>
+          <label>
+            Status
+            <select id="statusFilter">
+              <option value="Todos">Todos</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Enviado">Enviado</option>
+              <option value="Aprovado">Aprovado</option>
+              <option value="Rejeitado">Rejeitado</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="secondary-button" id="exportCsv" type="button">Exportar CSV</button>
+          <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
+        </div>
+      </section>
+
+      <section class="expenses" id="expensesList" aria-live="polite"></section>
+    </main>
+
+    <template id="expenseTemplate">
+      <article class="expense-card">
+        <div class="expense-main">
+          <div>
+            <span class="category"></span>
+            <h3></h3>
+            <p class="expense-meta"></p>
+          </div>
+          <strong class="amount"></strong>
+        </div>
+        <p class="notes"></p>
+        <div class="expense-footer">
+          <select class="status-select" aria-label="Alterar status"></select>
+          <button class="text-button delete-button" type="button">Excluir</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
