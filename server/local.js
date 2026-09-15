@@ -38,6 +38,7 @@ export function localApi() {
       }
       const receiptsRoot = resolve(".local-data");
       const env = {
+        ADMIN_EMAIL: "local-owner@sites.test",
         DB: sqliteBinding(database),
         RECEIPTS: {
           async put(key, bytes) { const path = resolve(receiptsRoot, key); mkdirSync(dirname(path), { recursive: true }); await writeFile(path, bytes); },
@@ -47,12 +48,14 @@ export function localApi() {
       };
       server.httpServer?.once("close", () => database.close());
       server.middlewares.use(async (req, res, next) => {
+        if (req.url === "/admin") { res.statusCode = 302; res.setHeader("Location", "/admin.html"); res.end(); return; }
         if (!req.url.startsWith("/api/")) return next();
         try {
           const headers = new Headers();
           for (const [name, value] of Object.entries(req.headers)) if (value) headers.set(name, String(value));
           // Development only: production never uses this identity.
           headers.set("oai-authenticated-user-id", "local-owner");
+          headers.set("oai-authenticated-user-email", "local-owner@sites.test");
           const request = new Request(`http://${req.headers.host}${req.url}`, {
             method: req.method, headers,
             ...(!["GET", "HEAD"].includes(req.method) ? { body: req, duplex: "half" } : {}),

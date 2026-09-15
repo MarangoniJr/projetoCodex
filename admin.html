@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Consultar e editar dados · Reembolso</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <header class="app-header"><div><p class="eyebrow">Administração privada</p><h1>Consultar e editar dados</h1></div><a class="back-link" href="/">Voltar às despesas</a></header>
+  <main class="shell admin-shell">
+    <p id="adminStatus" class="connection-status" role="status">Verificando acesso...</p>
+    <div id="adminContent" hidden>
+      <section class="panel query-panel" aria-labelledby="queryTitle">
+        <div class="section-title"><div><h2 id="queryTitle">Consulta SQL</h2><p>Consulte os dados online da sua conta e abra um registro para editar.</p></div><span class="private-badge">Acesso do proprietário</span></div>
+        <div class="query-examples" aria-label="Exemplos de consulta">
+          <button type="button" data-example="expenses">Todas as despesas</button>
+          <button type="button" data-example="food">Alimentação</button>
+          <button type="button" data-example="car">Carro próprio</button>
+          <button type="button" data-example="reports">Dados do relatório</button>
+        </div>
+        <form id="queryForm">
+          <label for="sql">Escreva seu SELECT</label>
+          <textarea id="sql" rows="5" spellcheck="false" maxlength="8000" required>SELECT * FROM expenses ORDER BY date DESC LIMIT 100;</textarea>
+          <div class="query-footer"><span>Até 200 registros por consulta.</span><button id="runQuery" class="primary-button" type="submit">Executar consulta</button></div>
+        </form>
+        <details class="sql-help"><summary>Colunas e comandos disponíveis</summary>
+          <p><strong>expenses:</strong> id, date, type, category, amount, from, to, km, carExtra, notes, receiptName, createdAt, receipt_key e payload.</p>
+          <p><strong>reports:</strong> reportMonth, consultant, route, company, kmRate e payload.</p>
+          <p>Use SELECT, colunas ou *, AS, WHERE com AND, comparações (=, !=, &gt;, &lt;, &gt;=, &lt;=, LIKE), ORDER BY de uma coluna e LIMIT de 1 a 200. Textos ficam entre aspas simples. Também é aceito json_extract(payload, '$.campo').</p>
+          <p>O asterisco mostra os campos principais já separados do JSON. Inclua id ao consultar despesas para habilitar a edição. Consultas com JOIN, subconsultas, agregações e comandos de alteração não são aceitas nesta tela; para alterar valores, use Editar.</p>
+          <p>Valores de carro próprio são calculados com km × taxa do relatório + carExtra. amount é o valor de uma despesa realizada.</p>
+        </details>
+      </section>
+      <section class="panel results-panel" aria-labelledby="resultsTitle">
+        <div class="section-title"><h2 id="resultsTitle">Resultados</h2><p id="resultCount">Execute uma consulta para começar.</p></div>
+        <div id="resultTable" class="table-scroll" tabindex="0" aria-label="Resultados da consulta"></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="editDialog" aria-labelledby="editTitle">
+    <form id="editForm">
+      <div class="editor-heading"><div><p class="eyebrow">Editar registro</p><h2 id="editTitle">Despesa</h2></div><button class="text-button" id="cancelEdit" type="button">Fechar</button></div>
+      <p id="editStatus" role="status"></p>
+      <div id="editFields" class="edit-fields"></div>
+      <section id="changesPanel" hidden><h3>Revise as alterações</h3><div class="table-scroll" id="changesTable"></div></section>
+      <div class="editor-actions"><button id="backToEdit" type="button" class="secondary-button" hidden>Continuar editando</button><button id="reviewEdit" class="primary-button" type="submit">Revisar alterações</button><button id="confirmEdit" class="primary-button" type="button" hidden>Confirmar e salvar</button></div>
+    </form>
+  </dialog>
+  <script src="/admin.js"></script>
+</body>
+</html>

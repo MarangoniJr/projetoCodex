@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readdirSync, readFileSync } from "node:fs";
 import { handleApi } from "../server/api.js";
 import { sqliteBinding } from "../server/local.js";
+import { compileQuery } from "../server/admin.js";
 let database, env, objects;
 beforeEach(() => {
   database = new DatabaseSync(":memory:");
@@ -64,4 +65,85 @@ test("accepts car expenses and legacy receipt-less records", async () => {
   const saved = (await (await call("/api/state")).json()).expenses[0];
   assert.equal(saved.km, 100);
   assert.equal(saved.receiptUrl, "");
+});
+
+function adminCall(path, method = "GET", data, user = "owner-a", email = "admin@example.com") {
+  env.ADMIN_EMAIL = "admin@example.com";
+  return call(path, method, data, user, { "oai-authenticated-user-email": email });
+}
+test("admin endpoints require configured administrator and isolate every query", async () => {
+  await call("/api/expenses", "POST", expense());
+  await call("/api/expenses", "POST", { ...expense(), id: "other", amount: 999 }, "owner-b");
+  assert.equal((await call("/api/admin/query", "POST", { sql: "SELECT * FROM expenses" })).status, 403);
+  assert.equal((await adminCall("/api/admin/query", "POST", { sql: "SELECT * FROM expenses" }, "owner-b", "viewer@example.com")).status, 403);
+  const result = await (await adminCall("/api/admin/query", "POST", { sql: "SELECT * FROM expenses;" })).json();
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].id, "test-1");
+  assert.equal(result.editable, true);
+  assert.equal((await adminCall("/api/admin/records/expenses/other")).status, 404);
+});
+test("SELECT grammar supports filters, aliases, JSON fields and bounded results", async () => {
+  await call("/api/expenses", "POST", expense());
+  const sql = "SELECT id, date AS data, json_extract(payload, '$.amount') AS valor FROM expenses WHERE amount >= 40 AND notes LIKE 'Al%' ORDER BY date DESC LIMIT 1;";
+  const result = await (await adminCall("/api/admin/query", "POST", { sql })).json();
+  assert.equal(result.rows[0].valor, 42.5);
+  assert.equal(result.rows[0].data, "2026-09-14");
+  assert.equal(result.limit, 1);
+  await call("/api/expenses", "POST", { ...expense(), id: "test-2" });
+  const limited = await (await adminCall("/api/admin/query", "POST", { sql: "SELECT * FROM expenses LIMIT 1" })).json();
+  assert.equal(limited.rows.length, 1);
+  assert.equal(limited.hasMore, true);
+  assert.equal(compileQuery("SELECT notes AS id FROM expenses", "owner-a").editable, false);
+  const safe = compileQuery("SELECT id FROM expenses WHERE notes = 'x''; DROP TABLE expenses;--'", "owner-a");
+  assert.equal(safe.query.includes("DROP"), false);
+  assert.equal(safe.values[1], "x'; DROP TABLE expenses;--");
+});
+test("SQL rejects writes, multiple statements, cross-owner escapes and unsupported expressions", async () => {
+  const rejected = [
+    "DELETE FROM expenses", "UPDATE expenses SET payload = '{}'", "DROP TABLE reports",
+    "SELECT * FROM expenses; DELETE FROM reports", "SELECT * FROM expenses UNION SELECT * FROM reports",
+    "SELECT * FROM sqlite_master", "SELECT * FROM main.expenses", "SELECT * FROM expenses WHERE owner = 'owner-b'",
+    "SELECT * FROM expenses WHERE amount = 1 OR 1=1", "SELECT * FROM expenses LIMIT -1",
+    "SELECT * FROM expenses LIMIT 201", "SELECT randomblob(10000000) FROM expenses", "PRAGMA database_list",
+    "WITH x AS (SELECT * FROM expenses) SELECT * FROM x", "SELECT * FROM expenses -- comment",
+    "SELECT id AS id, notes AS id FROM expenses", "SELECT * FROM expenses WHERE notes = ?",
+  ];
+  for (const sql of rejected) assert.throws(() => compileQuery(sql, "owner-a"), { status: 400 }, sql);
+});
+test("edits preserve identifiers, receipt and creation date, and update sorting date", async () => {
+  await call("/api/expenses", "POST", expense());
+  const original = await (await adminCall("/api/admin/records/expenses/test-1")).json();
+  const result = await adminCall("/api/admin/records/expenses/test-1", "PUT", {
+    version: original.version,
+    data: { ...original.data, id: "hijack", date: "2026-09-20", amount: 80, receiptName: "changed.jpg", createdAt: "bad" },
+  });
+  assert.equal(result.status, 200);
+  const saved = (await result.json()).data;
+  assert.equal(saved.amount, 80);
+  assert.equal(saved.id, "test-1");
+  assert.equal(saved.createdAt, original.data.createdAt);
+  assert.equal(saved.receiptName, original.data.receiptName);
+  assert.equal((await call("/api/receipts/test-1")).status, 200);
+  assert.equal(database.prepare("SELECT date FROM expenses").get().date, "2026-09-20");
+  const conflict = await adminCall("/api/admin/records/expenses/test-1", "PUT", { version: original.version, data: { ...original.data, amount: 90 } });
+  assert.equal(conflict.status, 409);
+  assert.equal(JSON.parse(database.prepare("SELECT payload FROM expenses").get().payload).amount, 80);
+});
+test("invalid edits, unauthorized editors and foreign origin do not write", async () => {
+  await call("/api/expenses", "POST", expense());
+  const original = await (await adminCall("/api/admin/records/expenses/test-1")).json();
+  const body = { version: original.version, data: { ...original.data, amount: -10 } };
+  assert.equal((await adminCall("/api/admin/records/expenses/test-1", "PUT", body)).status, 400);
+  assert.equal((await adminCall("/api/admin/records/expenses/test-1", "PUT", body, "owner-a", "viewer@example.com")).status, 403);
+  assert.equal((await call("/api/admin/records/expenses/test-1", "PUT", body, "owner-a", { Origin: "https://evil.example", "oai-authenticated-user-email": "admin@example.com" })).status, 403);
+  assert.equal(database.prepare("SELECT payload FROM expenses").get().payload, original.version);
+});
+test("admin can query and edit report with validation and conflict detection", async () => {
+  await call("/api/report", "PUT", { reportMonth: "2026-09", consultant: "Teste", kmRate: "1.15" });
+  const original = await (await adminCall("/api/admin/records/reports")).json();
+  assert.equal((await adminCall("/api/admin/records/reports", "PUT", { version: original.version, data: { ...original.data, kmRate: "-1" } })).status, 400);
+  assert.equal((await adminCall("/api/admin/records/reports", "PUT", { version: original.version, data: { ...original.data, consultant: "Atualizado", kmRate: "1.5" } })).status, 200);
+  const result = await (await adminCall("/api/admin/query", "POST", { sql: "SELECT consultant, kmRate FROM reports;" })).json();
+  assert.equal(result.rows[0].consultant, "Atualizado");
+  assert.equal(result.rows[0].kmrate, "1.5");
 });

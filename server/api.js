@@ -1,3 +1,4 @@
+import { handleAdmin, isAdmin } from "./admin.js";
 const MAX_RECEIPT = 2 * 1024 * 1024;
 const categories = ["Alimentação", "Transporte", "Refeição", "Outros", "Hotel", "Taxi", "Estacionamento", "Pedágio"];
 const json = (data, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -33,6 +34,13 @@ function expenseData(input) {
 function rowData(row) {
   return { ...JSON.parse(row.payload), receiptUrl: row.receipt_key ? `/api/receipts/${encodeURIComponent(row.id)}` : "" };
 }
+function reportData(input) {
+  const report = {};
+  for (const field of ["reportMonth", "consultant", "route", "company", "kmRate"]) report[field] = text(String(input[field] ?? ""));
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(report.reportMonth)) bad("Mês inválido.");
+  number(Number(report.kmRate));
+  return report;
+}
 async function readBody(request) {
   if (!request.headers.get("Content-Type")?.startsWith("application/json")) bad("Envie os dados em JSON.");
   // Bound actual bytes, including requests without a Content-Length header.
@@ -61,18 +69,16 @@ export async function handleApi(request, env) {
     if ((origin && origin !== url.origin) || request.headers.get("Sec-Fetch-Site") === "cross-site") return json({ error: "Origem não autorizada." }, 403);
   }
   try {
+    if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, env, owner, { readBody, expenseData, reportData });
     if (url.pathname === "/api/state" && method === "GET") {
       const [rows, report] = await Promise.all([
         db(env).prepare("SELECT * FROM expenses WHERE owner = ? ORDER BY date, id").bind(owner).all(),
         db(env).prepare("SELECT payload FROM reports WHERE owner = ?").bind(owner).first(),
       ]);
-      return json({ expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {} });
+      return json({ expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, isAdmin: isAdmin(request, env) });
     }
     if (url.pathname === "/api/report" && method === "PUT") {
-      const input = await readBody(request); const report = {};
-      for (const field of ["reportMonth", "consultant", "route", "company", "kmRate"]) report[field] = text(String(input[field] ?? ""));
-      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(report.reportMonth)) bad("Mês inválido.");
-      number(Number(report.kmRate));
+      const report = reportData(await readBody(request));
       await db(env).prepare("INSERT INTO reports (owner, payload) VALUES (?, ?) ON CONFLICT(owner) DO UPDATE SET payload = excluded.payload").bind(owner, JSON.stringify(report)).run();
       return json({ report });
     }

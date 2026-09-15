@@ -24,7 +24,15 @@ Aplicativo de despesas de viagem com acesso privado pelo celular, banco SQLite e
 
 No navegador em que os registros antigos foram feitos, abra o `index.html` atualizado e clique em **Baixar dados antigos deste navegador**. Esse botão aparece quando há registros locais. No site publicado, escolha **Importar dados antigos** e selecione o JSON baixado. A importação conserva os identificadores e pode ser repetida após uma falha sem duplicar despesas. Preencha novamente os dados do relatório e confira a taxa de quilometragem. Os registros antigos no navegador não são apagados.
 
-## Desenvolvimento
+## Consultas e edição privada
+
+Abra `/admin` ou o link **Consultar e editar dados** no cabeçalho. O acesso exige o e-mail do proprietário configurado como `ADMIN_EMAIL` no ambiente do Sites e a identidade autenticada encaminhada pela plataforma. Sem essa configuração, a área é bloqueada. No desenvolvimento local, o servidor usa somente a identidade simulada `local-owner@sites.test`.
+
+O editor aceita um subconjunto de SELECT: colunas, `*`, aliases com `AS`, `json_extract(payload, '$.campo')`, `WHERE` com comparações/LIKE e `AND`, `ORDER BY` de uma coluna e `LIMIT` de 1 a 200. As tabelas disponíveis são `expenses` e `reports`. `*` expande os campos principais do JSON. O servidor reconstrói a consulta com colunas permitidas, parâmetros e filtro obrigatório da conta; não executa SQL arbitrário, agregações, JOIN, subconsultas ou comandos de escrita.
+
+Use **Editar** para alterar despesas ou dados do relatório e revise a diferença antes de confirmar. Identificadores, conta, data de criação e vínculo do comprovante são preservados. A gravação compara o registro atual com a versão aberta e rejeita alterações concorrentes. Ao voltar à página de despesas, recarregue-a se ela já estava aberta em outra aba.
+
+## Executar localmente
 
 Requer Node.js 22.13 ou superior (com `node:sqlite`).
 

@@ -420,3 +420,5 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .import-label { position: relative; padding: 10px 0; color: var(--muted); font-size: 0.85rem; cursor: pointer; }
 .import-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .import-label:focus-within { outline: 2px solid var(--brand); }
+.header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#adminLink { color: var(--brand-dark); font-weight: 700; font-size: .9rem; padding: 10px 0; }

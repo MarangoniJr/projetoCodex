@@ -59,6 +59,7 @@ async function initialize() {
     if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
     const state = await api("/api/state");
     expenses = state.expenses;
+    document.querySelector("#adminLink").hidden = !state.isAdmin;
     report = state.report;
     hydrateReport();
     ready = true;
