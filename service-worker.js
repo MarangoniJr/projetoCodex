@@ -1,10 +1,10 @@
-const cacheName = "reembolso-viagem-v2";
-const assets = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg"];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(assets)));
-});
-
-self.addEventListener("fetch", (event) => {
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+// Authenticated API responses and receipts must never enter an offline cache.
+self.addEventListener("install", (event) => { event.waitUntil(self.skipWaiting()); });
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    for (const name of await caches.keys()) {
+      if (name.startsWith("reembolso-viagem-")) await caches.delete(name);
+    }
+    await self.clients.claim();
+  })());
 });

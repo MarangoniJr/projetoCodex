@@ -14,17 +14,60 @@ const clearButton = document.querySelector("#clearAll");
 const installButton = document.querySelector("#installButton");
 
 let deferredInstallPrompt = null;
-let expenses = loadJson(storageKey, []);
-let report = loadJson(reportKey, {});
+let expenses = [];
+let report = {};
+let ready = false;
+let pendingReceipt = null;
+let receiptLoading = false;
+let receiptGeneration = 0;
+let pendingExpenseId = null;
+let reportTimer;
+let reportSave = Promise.resolve();
+const status = document.querySelector("#connectionStatus");
+const saveButton = form.querySelector('button[type="submit"]');
 
 const today = new Date();
-const currentMonth = today.toISOString().slice(0, 7);
-dateInput.valueAsDate = today;
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const currentMonth = localDate(today).slice(0, 7);
+dateInput.value = localDate(today);
 monthFilter.value = currentMonth;
 
 hydrateReport();
 toggleExpenseFields();
-renderExpenses();
+initialize();
+
+function showStatus(message, error = false) {
+  status.textContent = message;
+  status.classList.toggle("error", error);
+}
+
+async function api(path, options = {}) {
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...options.headers }, cache: "no-store" });
+  } catch { throw new Error("Sem conexão. Seus campos e a foto continuam aqui. Conecte-se e tente novamente."); }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data) throw new Error(data?.error || "Não foi possível acessar o servidor. Atualize a página e entre na sua conta.");
+  return data;
+}
+
+async function initialize() {
+  saveButton.disabled = true;
+  reportForm.querySelectorAll("input").forEach(field => { field.disabled = true; });
+  document.querySelector("#backupLocal").hidden = !loadJson(storageKey, []).length;
+  try {
+    if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
+    const state = await api("/api/state");
+    expenses = state.expenses;
+    report = state.report;
+    hydrateReport();
+    ready = true;
+    reportForm.querySelectorAll("input").forEach(field => { field.disabled = false; });
+    saveButton.disabled = false;
+    renderExpenses();
+    showStatus("Despesas carregadas. Os cadastros serão salvos na sua conta.");
+  } catch (error) { showStatus(error.message, true); }
+}
 
 function loadJson(key, fallback) {
   try {
@@ -34,16 +77,11 @@ function loadJson(key, fallback) {
   }
 }
 
-function saveJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
 function hydrateReport() {
   const defaults = {
     reportMonth: currentMonth,
     consultant: "Paulo César Marangoni Junior",
     kmRate: "1.15",
-    advance: "0",
   };
 
   report = { ...defaults, ...report };
@@ -106,9 +144,11 @@ function toggleExpenseFields() {
   const isCar = expenseType.value === "car";
   document.querySelectorAll(".normal-fields").forEach((node) => {
     node.hidden = isCar;
+    node.querySelectorAll("input, select").forEach((field) => { field.disabled = isCar; });
   });
   document.querySelectorAll(".car-fields").forEach((node) => {
     node.hidden = !isCar;
+    node.querySelectorAll("input, select").forEach((field) => { if (field.id !== "kmRate") field.disabled = !isCar; });
   });
 }
 
@@ -130,16 +170,6 @@ function getMonthTotal(rows) {
   return rows.reduce((sum, expense) => sum + getExpenseTotal(expense), 0);
 }
 
-function updateSummary(rows) {
-  const total = getMonthTotal(rows);
-  const advance = decimal(report.advance);
-  const receipts = rows.filter((expense) => expense.receiptData).length;
-
-  document.querySelector("#monthTotal").textContent = currency(total);
-  document.querySelector("#receiptCount").textContent = String(receipts);
-  document.querySelector("#refundTotal").textContent = currency(Math.max(total - advance, 0));
-}
-
 function renderExpenses() {
   const rows = getFilteredExpenses();
   list.innerHTML = "";
@@ -149,7 +179,6 @@ function renderExpenses() {
     empty.className = "panel empty-state";
     empty.textContent = "Nenhuma despesa cadastrada para este mês.";
     list.append(empty);
-    updateSummary(rows);
     return;
   }
 
@@ -170,15 +199,15 @@ function renderExpenses() {
     node.querySelector(".notes").textContent = expense.notes || "Sem observações.";
 
     const preview = node.querySelector(".receipt-preview");
-    if (expense.receiptData) {
-      preview.src = expense.receiptData;
+    if (expense.receiptUrl || expense.receiptData) {
+      preview.src = expense.receiptUrl || expense.receiptData;
       preview.hidden = false;
+      preview.loading = "lazy";
     }
 
     list.append(node);
   });
 
-  updateSummary(rows);
 }
 
 function resizeImage(file) {
@@ -192,17 +221,19 @@ function resizeImage(file) {
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
-        const maxSide = 1400;
+        const maxSide = 1600;
         const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(image.width * scale);
         canvas.height = Math.round(image.height * scale);
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const data = canvas.toDataURL("image/jpeg", 0.8);
+        if (data.length > 2700000) { reject(new Error("Escolha uma foto menor para o comprovante.")); return; }
         resolve({
           name: file.name || "comprovante.jpg",
           type: "image/jpeg",
-          data: canvas.toDataURL("image/jpeg", 0.78),
+          data,
         });
       };
       image.onerror = reject;
@@ -213,23 +244,71 @@ function resizeImage(file) {
   });
 }
 
+function persistReport() {
+  clearTimeout(reportTimer);
+  const values = getReportData();
+  report = values;
+  reportSave = reportSave.catch(() => {}).then(() => api("/api/report", { method: "PUT", body: JSON.stringify(values) }));
+  return reportSave;
+}
+
 reportForm.addEventListener("input", () => {
+  if (!ready) return;
   report = getReportData();
-  saveJson(reportKey, report);
   renderExpenses();
+  clearTimeout(reportTimer);
+  reportTimer = setTimeout(() => persistReport().then(() => showStatus("Dados do relatório salvos.")).catch(error => showStatus(error.message, true)), 600);
 });
+
+function clearReceipt() {
+  receiptGeneration += 1;
+  pendingReceipt = null;
+  receiptLoading = false;
+  document.querySelector("#receiptDraft").hidden = true;
+  document.querySelector("#receiptDraft").removeAttribute("src");
+  document.querySelector("#removeReceipt").hidden = true;
+  document.querySelector("#receiptPhoto").value = "";
+  document.querySelector("#receiptGallery").value = "";
+  document.querySelector("#receiptStatus").textContent = "A foto será salva junto com esta despesa.";
+}
+
+for (const id of ["receiptPhoto", "receiptGallery"]) {
+  document.querySelector(`#${id}`).addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const generation = ++receiptGeneration;
+    receiptLoading = true;
+    document.querySelector("#receiptStatus").textContent = "Preparando foto...";
+    try {
+      if (!file.type.startsWith("image/") || file.size > 25 * 1024 * 1024) throw new Error("Escolha uma imagem de até 25 MB.");
+      const receipt = await resizeImage(file);
+      if (generation !== receiptGeneration) return;
+      pendingReceipt = receipt;
+      const preview = document.querySelector("#receiptDraft");
+      preview.src = receipt.data;
+      preview.hidden = false;
+      document.querySelector("#removeReceipt").hidden = false;
+      document.querySelector("#receiptStatus").textContent = "Foto pronta. Toque em Salvar despesa para concluir.";
+    } catch (error) {
+      if (generation === receiptGeneration) document.querySelector("#receiptStatus").textContent = `${error.message || "Não foi possível ler esta foto. Tente uma imagem JPEG."}${pendingReceipt ? " A foto anterior foi mantida." : ""}`;
+    } finally { if (generation === receiptGeneration) receiptLoading = false; }
+  });
+}
+document.querySelector("#removeReceipt").addEventListener("click", clearReceipt);
 
 expenseType.addEventListener("change", toggleExpenseFields);
 monthFilter.addEventListener("change", renderExpenses);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!ready || saveButton.disabled) return;
+  if (receiptLoading) { showStatus("Aguarde a foto terminar de carregar.", true); return; }
   const data = new FormData(form);
-  const receipt = await resizeImage(data.get("receiptPhoto"));
+  const receipt = pendingReceipt;
   const type = data.get("expenseType");
 
-  expenses.push({
-    id: createId(),
+  const expense = {
+    id: pendingExpenseId || (pendingExpenseId = createId()),
     type,
     date: data.get("date"),
     category: type === "normal" ? data.get("category") : "",
@@ -243,35 +322,67 @@ form.addEventListener("submit", async (event) => {
     receiptType: receipt?.type || "",
     receiptData: receipt?.data || "",
     createdAt: new Date().toISOString(),
-  });
+  };
 
-  saveJson(storageKey, expenses);
-  form.reset();
-  dateInput.valueAsDate = new Date();
-  toggleExpenseFields();
-  renderExpenses();
+  saveButton.disabled = true;
+  saveButton.textContent = "Salvando despesa e comprovante...";
+  const inputs = [...form.querySelectorAll("input, select, textarea, button")];
+  const disabledStates = inputs.map(field => field.disabled);
+  inputs.forEach(field => { field.disabled = true; });
+  try {
+    await persistReport();
+    const result = await api("/api/expenses", { method: "POST", body: JSON.stringify(expense) });
+    expenses = [...expenses.filter(row => row.id !== result.expense.id), result.expense];
+    monthFilter.value = result.expense.date.slice(0, 7);
+    form.reset();
+    clearReceipt();
+    pendingExpenseId = null;
+    dateInput.value = localDate(new Date());
+    renderExpenses();
+    showStatus(receipt ? "Despesa e comprovante salvos na sua conta." : "Despesa salva na sua conta.");
+  } catch (error) { showStatus(error.message, true); }
+  finally {
+    inputs.forEach((field, index) => { field.disabled = disabledStates[index]; });
+    saveButton.disabled = false;
+    saveButton.textContent = "Salvar despesa";
+    toggleExpenseFields();
+  }
 });
 
-list.addEventListener("click", (event) => {
+list.addEventListener("click", async (event) => {
   if (!event.target.matches(".delete-button")) return;
   const card = event.target.closest(".expense-card");
-  expenses = expenses.filter((expense) => expense.id !== card.dataset.id);
-  saveJson(storageKey, expenses);
-  renderExpenses();
+  if (!confirm("Excluir esta despesa e seu comprovante?")) return;
+  event.target.disabled = true;
+  try {
+    await api(`/api/expenses/${encodeURIComponent(card.dataset.id)}`, { method: "DELETE" });
+    expenses = expenses.filter((expense) => expense.id !== card.dataset.id);
+    renderExpenses();
+    showStatus("Despesa excluída.");
+  } catch (error) { event.target.disabled = false; showStatus(error.message, true); }
 });
 
-clearButton.addEventListener("click", () => {
+clearButton.addEventListener("click", async () => {
   if (!expenses.length) return;
-  const confirmed = confirm("Deseja apagar todas as despesas salvas neste dispositivo?");
+  const confirmed = confirm("Deseja apagar TODAS as despesas e comprovantes da sua conta, de todos os meses?");
   if (!confirmed) return;
-  expenses = [];
-  saveJson(storageKey, expenses);
-  renderExpenses();
+  clearButton.disabled = true;
+  try {
+    for (const expense of [...expenses]) {
+      await api(`/api/expenses/${encodeURIComponent(expense.id)}`, { method: "DELETE" });
+      expenses = expenses.filter(row => row.id !== expense.id);
+    }
+    showStatus("Todas as despesas foram excluídas.");
+  } catch (error) { showStatus(error.message, true); }
+  finally { clearButton.disabled = false; renderExpenses(); }
 });
 
 exportButton.addEventListener("click", async () => {
+  if (!ready) return;
+  exportButton.disabled = true;
+  try {
   report = getReportData();
-  saveJson(reportKey, report);
+  await persistReport();
   const rows = getFilteredExpenses();
 
   if (!rows.length) {
@@ -284,16 +395,45 @@ exportButton.addEventListener("click", async () => {
   const spreadsheetName = `Reembolso ${monthLabel(month)}.xls`;
   files[spreadsheetName] = new TextEncoder().encode(buildSpreadsheet(rows, month));
 
-  rows.forEach((expense, index) => {
-    if (!expense.receiptData) return;
+  for (const [index, expense] of rows.entries()) {
+    if (!expense.receiptUrl && !expense.receiptData) continue;
     const extension = "jpg";
     const safeDate = expense.date.replaceAll("-", "");
     const fileName = `comprovantes/${String(index + 1).padStart(2, "0")}-${safeDate}-${expense.type === "car" ? "carro" : expense.category}.${extension}`;
-    files[fileName] = dataUrlToBytes(expense.receiptData);
-  });
+    if (expense.receiptUrl) {
+      const response = await fetch(expense.receiptUrl, { cache: "no-store" });
+      if (!response.ok || !response.headers.get("Content-Type")?.startsWith("image/")) throw new Error("Falha ao baixar um comprovante. Tente exportar novamente.");
+      files[fileName] = new Uint8Array(await response.arrayBuffer());
+    } else files[fileName] = dataUrlToBytes(expense.receiptData);
+  }
 
   const zip = createZip(files);
   downloadBlob(zip, `reembolso-${month}.zip`, "application/zip");
+  } catch (error) { showStatus(error.message, true); }
+  finally { exportButton.disabled = false; }
+});
+
+document.querySelector("#backupLocal").addEventListener("click", () => {
+  downloadBlob(JSON.stringify({ report: loadJson(reportKey, {}), expenses: loadJson(storageKey, []) }), "despesas-antigas.json", "application/json");
+});
+document.querySelector("#importLocal").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file || !ready) return;
+  event.target.disabled = true;
+  try {
+    if (file.size > 40 * 1024 * 1024) throw new Error("O arquivo de importação deve ter até 40 MB.");
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.expenses)) throw new Error("Arquivo de despesas inválido.");
+    let count = 0;
+    for (const expense of data.expenses) {
+      const result = await api("/api/expenses", { method: "POST", body: JSON.stringify(expense) });
+      expenses = [...expenses.filter(row => row.id !== result.expense.id), result.expense];
+      count += 1;
+      showStatus(`Importando despesas: ${count} de ${data.expenses.length}...`);
+    }
+    showStatus(`${count} despesas importadas. Você pode repetir a importação sem duplicar os cadastros.`);
+  } catch (error) { showStatus(error.message, true); }
+  finally { event.target.disabled = false; event.target.value = ""; renderExpenses(); }
 });
 
 function buildSpreadsheet(rows, month) {
@@ -305,7 +445,8 @@ function buildSpreadsheet(rows, month) {
   let carExtraTotal = 0;
 
   normalRows.forEach((expense) => {
-    normalTotals[expense.category] += decimal(expense.amount);
+    const category = expense.category === "Alimentação" ? "Refeição" : expense.category;
+    normalTotals[category] += decimal(expense.amount);
   });
 
   carRows.forEach((expense) => {
@@ -314,7 +455,6 @@ function buildSpreadsheet(rows, month) {
   });
 
   const expensesTotal = getMonthTotal(rows);
-  const advance = decimal(report.advance);
 
   return `<!doctype html>
 <html>
@@ -335,13 +475,11 @@ function buildSpreadsheet(rows, month) {
   <table>
     <tr><td class="title" colspan="12">RELATÓRIO DE REEMBOLSO DE DESPESAS</td></tr>
     <tr><td colspan="12">Mês de referência: ${escapeHtml(monthLabel(month))}</td></tr>
-    <tr><td class="label" colspan="2">Nome do Consultor:</td><td colspan="4">${escapeHtml(report.consultant)}</td><td class="label" colspan="2">Matrícula:</td><td>${escapeHtml(report.registration)}</td><td class="label">C. Custo:</td><td colspan="2">${escapeHtml(report.costCenter)}</td></tr>
+    <tr><td class="label" colspan="2">Nome do Consultor:</td><td colspan="10">${escapeHtml(report.consultant)}</td></tr>
     <tr><td class="label" colspan="2">Viagem De/Para:</td><td colspan="10">${escapeHtml(report.route)}</td></tr>
     <tr><td class="label" colspan="2">Empresa/Local:</td><td colspan="10">${escapeHtml(report.company)}</td></tr>
-    <tr><td class="label" colspan="2">Motivo da Viagem:</td><td colspan="10">${escapeHtml(report.reason)}</td></tr>
-    <tr><td class="label" colspan="5">Recebi como adiantamento para viagem valor de R$:</td><td class="right">${advance.toFixed(2)}</td><td class="label">Banco:</td><td>${escapeHtml(report.bank)}</td><td class="label">Agência:</td><td>${escapeHtml(report.agency)}</td><td class="label">C. Corrente:</td><td>${escapeHtml(report.account)}</td></tr>
     <tr><td class="section" colspan="12">DESPESAS REALIZADAS</td></tr>
-    <tr><th>Data</th><th>Meio de transporte</th><th>De</th><th>Para</th><th>Valor</th><th>Outros</th><th>Hotel</th><th>Taxi</th><th>Refeição</th><th>Estacion.</th><th>Pedágio</th><th>Obs.</th></tr>
+    <tr><th>Data</th><th>Meio de transporte</th><th>De</th><th>Para</th><th>Valor</th><th>Outros</th><th>Hotel</th><th>Taxi</th><th>Alimentação</th><th>Estacion.</th><th>Pedágio</th><th>Obs.</th></tr>
     ${normalRows
       .map((expense) => {
         const cells = {
@@ -349,7 +487,7 @@ function buildSpreadsheet(rows, month) {
           Outros: expense.category === "Outros" ? expense.amount : "",
           Hotel: expense.category === "Hotel" ? expense.amount : "",
           Taxi: expense.category === "Taxi" ? expense.amount : "",
-          Refeição: expense.category === "Refeição" ? expense.amount : "",
+          Refeição: ["Alimentação", "Refeição"].includes(expense.category) ? expense.amount : "",
           Estacionamento: expense.category === "Estacionamento" ? expense.amount : "",
           Pedágio: expense.category === "Pedágio" ? expense.amount : "",
         };
@@ -368,10 +506,7 @@ function buildSpreadsheet(rows, month) {
       .join("")}
     <tr><td colspan="3" class="label right">TOTAL R$</td><td class="right">${carKmTotal.toFixed(2)}</td><td class="right">${carExtraTotal.toFixed(2)}</td><td class="right">${(carKmTotal + carExtraTotal).toFixed(2)}</td><td colspan="6"></td></tr>
     <tr><td class="section" colspan="12">RESUMO</td></tr>
-    <tr><td class="label" colspan="3">Numerário Recebido(R$):</td><td class="right">${advance.toFixed(2)}</td><td colspan="8"></td></tr>
     <tr><td class="label" colspan="3">Total das Despesas(R$):</td><td class="right">${expensesTotal.toFixed(2)}</td><td colspan="8">Assinatura:</td></tr>
-    <tr><td class="label" colspan="3">Saldo a Devolver(R$):</td><td class="right">${Math.max(advance - expensesTotal, 0).toFixed(2)}</td><td colspan="8"></td></tr>
-    <tr><td class="label" colspan="3">Saldo a Receber(R$):</td><td class="right">${Math.max(expensesTotal - advance, 0).toFixed(2)}</td><td colspan="8"></td></tr>
     <tr><td colspan="12">RUIZ INOVAÇÕES EM SOLUÇÕES DE TI EIRELLI - CNPJ 30.131.027/0001-84</td></tr>
     <tr><td colspan="12">Contato: Dpto Financeiro / Fone: 11 97669-3615 / e-mail: financeiro@risti.com.br</td></tr>
   </table>
@@ -416,6 +551,7 @@ function createZip(files) {
     const localView = new DataView(localHeader.buffer);
     localView.setUint32(0, 0x04034b50, true);
     localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true);
     localView.setUint16(8, 0, true);
     localView.setUint32(14, crc, true);
     localView.setUint32(18, data.length, true);
@@ -429,6 +565,7 @@ function createZip(files) {
     centralView.setUint32(0, 0x02014b50, true);
     centralView.setUint16(4, 20, true);
     centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
     centralView.setUint32(16, crc, true);
     centralView.setUint32(20, data.length, true);
     centralView.setUint32(24, data.length, true);

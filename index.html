@@ -21,21 +21,11 @@
     </header>
 
     <main class="shell">
-      <section class="summary-grid" aria-label="Resumo do mês">
-        <article class="metric accent">
-          <span>Total do mês</span>
-          <strong id="monthTotal">R$ 0,00</strong>
-        </article>
-        <article class="metric">
-          <span>Comprovantes</span>
-          <strong id="receiptCount">0</strong>
-        </article>
-        <article class="metric">
-          <span>A receber</span>
-          <strong id="refundTotal">R$ 0,00</strong>
-        </article>
-      </section>
-
+      <p id="connectionStatus" class="connection-status" role="status">Carregando despesas...</p>
+      <div class="migration-actions">
+        <button id="backupLocal" class="text-button" type="button" hidden>Baixar dados antigos deste navegador</button>
+        <label class="import-label">Importar dados antigos <input id="importLocal" type="file" accept="application/json,.json" /></label>
+      </div>
       <section class="panel">
         <div class="section-title">
           <h2>Dados do relatório</h2>
@@ -56,17 +46,6 @@
 
           <div class="form-row">
             <label>
-              Matrícula
-              <input id="registration" name="registration" type="text" />
-            </label>
-            <label>
-              Centro de custo
-              <input id="costCenter" name="costCenter" type="text" />
-            </label>
-          </div>
-
-          <div class="form-row">
-            <label>
               Viagem de/para
               <input id="route" name="route" type="text" placeholder="Ex.: Bebedouro / Frutal" />
             </label>
@@ -76,33 +55,7 @@
             </label>
           </div>
 
-          <div class="form-row">
-            <label>
-              Motivo da viagem
-              <input id="reason" name="reason" type="text" />
-            </label>
-            <label>
-              Adiantamento recebido
-              <input id="advance" name="advance" type="number" inputmode="decimal" min="0" step="0.01" value="0" />
-            </label>
-          </div>
-
-          <div class="form-row three">
-            <label>
-              Banco
-              <input id="bank" name="bank" type="text" />
-            </label>
-            <label>
-              Agência
-              <input id="agency" name="agency" type="text" />
-            </label>
-            <label>
-              Conta corrente
-              <input id="account" name="account" type="text" />
-            </label>
-          </div>
-
-          <label>
+          <label class="car-fields" hidden>
             Taxa de quilometragem
             <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" />
           </label>
@@ -133,14 +86,9 @@
           <div class="form-row normal-fields">
             <label>
               Categoria
-              <select id="category" name="category">
-                <option value="Refeição">Refeição</option>
+              <select id="category" name="category" required>
+                <option value="Alimentação">Alimentação</option>
                 <option value="Transporte">Transporte</option>
-                <option value="Hotel">Hotel</option>
-                <option value="Taxi">Taxi</option>
-                <option value="Estacionamento">Estacionamento</option>
-                <option value="Pedágio">Pedágio</option>
-                <option value="Outros">Outros</option>
               </select>
             </label>
             <label>
@@ -176,10 +124,20 @@
             <textarea id="notes" name="notes" rows="3" placeholder="Ex.: Almoço QQ, pedágio ida, km cliente"></textarea>
           </label>
 
-          <label>
-            Foto do comprovante
-            <input id="receiptPhoto" name="receiptPhoto" type="file" accept="image/*" capture="environment" />
-          </label>
+          <fieldset class="receipt-picker">
+            <legend>Comprovante</legend>
+            <div class="receipt-actions">
+              <label class="photo-button">Tirar foto
+                <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
+              </label>
+              <label class="photo-button secondary">Escolher imagem
+                <input id="receiptGallery" type="file" accept="image/*" />
+              </label>
+            </div>
+            <p id="receiptStatus" role="status">A foto será salva junto com esta despesa.</p>
+            <img id="receiptDraft" class="receipt-draft" alt="Prévia do comprovante desta despesa" hidden />
+            <button id="removeReceipt" class="text-button" type="button" hidden>Remover foto</button>
+          </fieldset>
 
           <button class="primary-button" type="submit">Salvar despesa</button>
         </form>
@@ -225,5 +183,4 @@
     <script src="app.js"></script>
   </body>
 </html>
-
 

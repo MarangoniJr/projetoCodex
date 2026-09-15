@@ -320,3 +320,103 @@ textarea:focus {
     min-height: 82px;
   }
 }
+
+.controls-panel {
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(23, 33, 30, 0.05);
+}
+
+.controls-panel .section-title {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+
+.controls-panel .section-title h2 {
+  margin: 0;
+}
+
+.controls-panel .section-title p {
+  line-height: 1.5;
+}
+
+.controls-panel .toolbar {
+  grid-template-columns: minmax(200px, 1fr) auto auto;
+  align-items: end;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.controls-panel .toolbar label {
+  gap: 8px;
+}
+
+.controls-panel .toolbar input {
+  min-width: 0;
+  height: 48px;
+}
+
+.controls-panel .toolbar button {
+  min-height: 48px;
+  padding: 12px 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: background-color 150ms ease;
+}
+
+.controls-panel .secondary-button {
+  background: var(--brand);
+  color: #fff;
+}
+
+.controls-panel .secondary-button:hover {
+  background: var(--brand-dark);
+}
+
+.controls-panel .danger-button {
+  background: transparent;
+}
+
+.controls-panel .danger-button:hover {
+  background: #fff0ee;
+}
+
+.controls-panel button:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .controls-panel {
+    padding: 20px;
+  }
+
+  .controls-panel .toolbar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.connection-status { padding: 12px 16px; border-radius: 8px; background: #e8f3ef; color: var(--brand-dark); line-height: 1.5; }
+.connection-status.error { color: var(--danger); background: #fff0ee; }
+.receipt-picker { margin: 0; padding: 16px; border: 1px dashed #a9bdb4; border-radius: 10px; }
+.receipt-picker legend { padding: 0 6px; font-weight: 700; }
+.receipt-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.photo-button { position: relative; padding: 14px 20px; border-radius: 8px; color: #fff; background: var(--brand); cursor: pointer; }
+.photo-button.secondary { background: var(--surface-strong); color: var(--brand-dark); }
+.photo-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-button:focus-within { outline: 3px solid var(--brand); outline-offset: 3px; }
+#receiptStatus { margin: 12px 0 0; color: var(--muted); line-height: 1.5; font-size: 0.9rem; }
+.receipt-draft { display: block; max-width: 100%; max-height: 360px; margin-top: 14px; border-radius: 8px; object-fit: contain; }
+.receipt-preview { object-fit: contain; background: var(--surface-strong); }
+button:disabled { opacity: 0.6; cursor: wait; }
+.migration-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center; }
+.import-label { position: relative; padding: 10px 0; color: var(--muted); font-size: 0.85rem; cursor: pointer; }
+.import-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.import-label:focus-within { outline: 2px solid var(--brand); }
