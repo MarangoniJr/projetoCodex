@@ -59,6 +59,9 @@ async function initialize() {
     if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
     const state = await api("/api/state");
     expenses = state.expenses;
+    document.querySelector("#accountName").textContent = state.user?.email || "Minha conta";
+    document.querySelector("#signIn").hidden = true;
+    document.querySelector("#signOut").hidden = false;
     document.querySelector("#adminLink").hidden = !state.isAdmin;
     report = state.report;
     hydrateReport();
@@ -81,7 +84,7 @@ function loadJson(key, fallback) {
 function hydrateReport() {
   const defaults = {
     reportMonth: currentMonth,
-    consultant: "Paulo César Marangoni Junior",
+    consultant: "",
     kmRate: "1.15",
   };
 
@@ -155,8 +158,60 @@ function toggleExpenseFields() {
 
 function getFilteredExpenses() {
   return expenses
-    .filter((expense) => expense.date.startsWith(monthFilter.value))
+    .filter(matchesFilters)
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function matchesFilters(expense) {
+  const week = document.querySelector("#weekFilter").value;
+  if (week) {
+    if (!/^\d{4}-W\d{2}$/.test(week)) return false;
+    const [year, number] = week.split("-W").map(Number);
+    const start = new Date(Date.UTC(year, 0, 4));
+    start.setUTCDate(start.getUTCDate() - (start.getUTCDay() || 7) + 1 + (number - 1) * 7);
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 7);
+    if (expense.date < start.toISOString().slice(0, 10) || expense.date >= end.toISOString().slice(0, 10)) return false;
+  } else if (!expense.date.startsWith(monthFilter.value)) return false;
+  return ["client", "project"].every(field => {
+    const value = document.querySelector(`#${field}Filter`).value;
+    return !value || (value === "__unassigned__" ? !expense[field] : expense[field] === value);
+  });
+}
+
+function groupedTotals(rows) {
+  const groups = new Map();
+  for (const expense of rows) {
+    const client = expense.client || "Sem cliente", project = expense.project || "Sem projeto";
+    const key = JSON.stringify([client, project]);
+    if (!groups.has(key)) groups.set(key, { client, project, total: 0 });
+    groups.get(key).total += getExpenseTotal(expense);
+  }
+  return [...groups.values()];
+}
+
+function fillChoices(selector, values, label) {
+  const element = document.querySelector(selector), previous = element.value;
+  element.replaceChildren();
+  if (label) {
+    element.add(new Option(label, ""));
+    element.add(new Option("Sem classificação", "__unassigned__"));
+  }
+  for (const value of [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b))) {
+    element.append(new Option(value, value));
+  }
+  if (label) element.value = [...element.options].some(option => option.value === previous) ? previous : "";
+}
+
+function projectChoices(input, target) {
+  fillChoices(target, expenses.filter(row => row.client === document.querySelector(input).value.trim()).map(row => row.project));
+}
+
+function refreshChoices() {
+  fillChoices("#clientOptions", expenses.map(row => row.client));
+  projectChoices("#client", "#projectOptions");
+  fillChoices("#clientFilter", expenses.map(row => row.client), "Todos os clientes");
+  const client = document.querySelector("#clientFilter").value;
+  fillChoices("#projectFilter", expenses.filter(row => !client || (client === "__unassigned__" ? !row.client : row.client === client)).map(row => row.project), "Todos os projetos");
 }
 
 function getExpenseTotal(expense) {
@@ -172,13 +227,16 @@ function getMonthTotal(rows) {
 }
 
 function renderExpenses() {
+  refreshChoices();
   const rows = getFilteredExpenses();
+  document.querySelector("#filteredTotal").textContent = `${rows.length} despesas · Total: ${currency(getMonthTotal(rows))}`;
+  document.querySelector("#projectTotals").innerHTML = groupedTotals(rows).map(group => `<p>${escapeHtml(group.client)} · ${escapeHtml(group.project)}: <strong>${currency(group.total)}</strong></p>`).join("");
   list.innerHTML = "";
 
   if (!rows.length) {
     const empty = document.createElement("div");
     empty.className = "panel empty-state";
-    empty.textContent = "Nenhuma despesa cadastrada para este mês.";
+    empty.textContent = "Nenhuma despesa encontrada para os filtros selecionados.";
     list.append(empty);
     return;
   }
@@ -197,6 +255,7 @@ function renderExpenses() {
     node.querySelector("h3").textContent = title;
     node.querySelector(".expense-meta").textContent = meta;
     node.querySelector(".amount").textContent = currency(getExpenseTotal(expense));
+    node.querySelector(".expense-context").textContent = `${expense.client || "Sem cliente"} · ${expense.project || "Sem projeto"}`;
     node.querySelector(".notes").textContent = expense.notes || "Sem observações.";
 
     const preview = node.querySelector(".receipt-preview");
@@ -299,6 +358,55 @@ document.querySelector("#removeReceipt").addEventListener("click", clearReceipt)
 
 expenseType.addEventListener("change", toggleExpenseFields);
 monthFilter.addEventListener("change", renderExpenses);
+document.querySelector("#client").addEventListener("input", () => {
+  document.querySelector("#project").value = "";
+  projectChoices("#client", "#projectOptions");
+});
+for (const id of ["clientFilter", "projectFilter", "weekFilter"]) {
+  document.querySelector(`#${id}`).addEventListener("change", () => {
+    if (id === "clientFilter") document.querySelector("#projectFilter").value = "";
+    renderExpenses();
+  });
+}
+monthFilter.addEventListener("change", () => {
+  document.querySelector("#weekFilter").value = "";
+  renderExpenses();
+});
+
+let classifyingId = null;
+const classificationDialog = document.querySelector("#classificationDialog");
+document.querySelector("#editClient").addEventListener("input", () => {
+  document.querySelector("#editProject").value = "";
+  projectChoices("#editClient", "#editProjectOptions");
+});
+document.querySelector("#cancelClassification").addEventListener("click", () => classificationDialog.close());
+list.addEventListener("click", event => {
+  if (!event.target.matches(".classify-button")) return;
+  classifyingId = event.target.closest(".expense-card").dataset.id;
+  const expense = expenses.find(row => row.id === classifyingId);
+  document.querySelector("#editClient").value = expense.client || "";
+  document.querySelector("#editProject").value = expense.project || "";
+  projectChoices("#editClient", "#editProjectOptions");
+  document.querySelector("#classificationStatus").textContent = "";
+  classificationDialog.showModal();
+});
+document.querySelector("#classificationForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = event.target.querySelector('button[type="submit"]');
+  if (button.disabled) return;
+  const id = classifyingId;
+  button.disabled = true;
+  try {
+    const result = await api(`/api/expenses/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({
+      client: document.querySelector("#editClient").value.trim(), project: document.querySelector("#editProject").value.trim(),
+    }) });
+    expenses = expenses.map(row => row.id === id ? result.expense : row);
+    classificationDialog.close();
+    renderExpenses();
+    showStatus("Cliente e projeto atualizados.");
+  } catch (error) { document.querySelector("#classificationStatus").textContent = error.message; }
+  finally { button.disabled = false; }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -312,6 +420,7 @@ form.addEventListener("submit", async (event) => {
     id: pendingExpenseId || (pendingExpenseId = createId()),
     type,
     date: data.get("date"),
+    client: String(data.get("client")).trim(), project: String(data.get("project")).trim(),
     category: type === "normal" ? data.get("category") : "",
     amount: type === "normal" ? decimal(data.get("amount")) : 0,
     from: type === "car" ? String(data.get("from")).trim() : "",
@@ -325,6 +434,7 @@ form.addEventListener("submit", async (event) => {
     createdAt: new Date().toISOString(),
   };
 
+  if (!expense.client || !expense.project) { showStatus("Informe o cliente e o projeto / área.", true); return; }
   saveButton.disabled = true;
   saveButton.textContent = "Salvando despesa e comprovante...";
   const inputs = [...form.querySelectorAll("input, select, textarea, button")];
@@ -336,9 +446,14 @@ form.addEventListener("submit", async (event) => {
     expenses = [...expenses.filter(row => row.id !== result.expense.id), result.expense];
     monthFilter.value = result.expense.date.slice(0, 7);
     form.reset();
+    document.querySelector("#client").value = expense.client;
+    document.querySelector("#project").value = expense.project;
     clearReceipt();
     pendingExpenseId = null;
     dateInput.value = localDate(new Date());
+    document.querySelector("#clientFilter").value = "";
+    document.querySelector("#projectFilter").value = "";
+    document.querySelector("#weekFilter").value = "";
     renderExpenses();
     showStatus(receipt ? "Despesa e comprovante salvos na sua conta." : "Despesa salva na sua conta.");
   } catch (error) { showStatus(error.message, true); }
@@ -387,12 +502,12 @@ exportButton.addEventListener("click", async () => {
   const rows = getFilteredExpenses();
 
   if (!rows.length) {
-    alert("Não há despesas cadastradas para o mês selecionado.");
+    alert("Não há despesas para os filtros selecionados.");
     return;
   }
 
   const files = {};
-  const month = monthFilter.value || report.reportMonth || currentMonth;
+  const month = rows[0].date.slice(0, 7);
   const spreadsheetName = `Reembolso ${monthLabel(month)}.xls`;
   files[spreadsheetName] = new TextEncoder().encode(buildSpreadsheet(rows, month));
 
@@ -475,7 +590,7 @@ function buildSpreadsheet(rows, month) {
 <body>
   <table>
     <tr><td class="title" colspan="12">RELATÓRIO DE REEMBOLSO DE DESPESAS</td></tr>
-    <tr><td colspan="12">Mês de referência: ${escapeHtml(monthLabel(month))}</td></tr>
+    <tr><td colspan="12">Mês de referência: ${escapeHtml(document.querySelector("#weekFilter").value || monthLabel(month))}</td></tr>
     <tr><td class="label" colspan="2">Nome do Consultor:</td><td colspan="10">${escapeHtml(report.consultant)}</td></tr>
     <tr><td class="label" colspan="2">Viagem De/Para:</td><td colspan="10">${escapeHtml(report.route)}</td></tr>
     <tr><td class="label" colspan="2">Empresa/Local:</td><td colspan="10">${escapeHtml(report.company)}</td></tr>
@@ -492,7 +607,7 @@ function buildSpreadsheet(rows, month) {
           Estacionamento: expense.category === "Estacionamento" ? expense.amount : "",
           Pedágio: expense.category === "Pedágio" ? expense.amount : "",
         };
-        return `<tr><td>${formatDate(expense.date)}</td><td>${expense.category === "Transporte" ? "Transporte" : ""}</td><td></td><td></td><td class="right">${formatMoneyCell(cells.Transporte)}</td><td class="right">${formatMoneyCell(cells.Outros)}</td><td class="right">${formatMoneyCell(cells.Hotel)}</td><td class="right">${formatMoneyCell(cells.Taxi)}</td><td class="right">${formatMoneyCell(cells.Refeição)}</td><td class="right">${formatMoneyCell(cells.Estacionamento)}</td><td class="right">${formatMoneyCell(cells.Pedágio)}</td><td>${escapeHtml(expense.notes)}</td></tr>`;
+        return `<tr><td>${formatDate(expense.date)}</td><td>${expense.category === "Transporte" ? "Transporte" : ""}</td><td></td><td></td><td class="right">${formatMoneyCell(cells.Transporte)}</td><td class="right">${formatMoneyCell(cells.Outros)}</td><td class="right">${formatMoneyCell(cells.Hotel)}</td><td class="right">${formatMoneyCell(cells.Taxi)}</td><td class="right">${formatMoneyCell(cells.Refeição)}</td><td class="right">${formatMoneyCell(cells.Estacionamento)}</td><td class="right">${formatMoneyCell(cells.Pedágio)}</td><td>${escapeHtml([expense.client || "Sem cliente", expense.project || "Sem projeto", expense.notes].filter(Boolean).join(" · "))}</td></tr>`;
       })
       .join("")}
     <tr><td class="label" colspan="4">TOTAL R$</td><td class="right">${normalTotals.Transporte.toFixed(2)}</td><td class="right">${normalTotals.Outros.toFixed(2)}</td><td class="right">${normalTotals.Hotel.toFixed(2)}</td><td class="right">${normalTotals.Taxi.toFixed(2)}</td><td class="right">${normalTotals.Refeição.toFixed(2)}</td><td class="right">${normalTotals.Estacionamento.toFixed(2)}</td><td class="right">${normalTotals.Pedágio.toFixed(2)}</td><td></td></tr>
@@ -502,14 +617,14 @@ function buildSpreadsheet(rows, month) {
     ${carRows
       .map(
         (expense) =>
-          `<tr><td>${formatDate(expense.date)}</td><td>${escapeHtml(expense.from)}</td><td>${escapeHtml(expense.to)}</td><td class="right">${decimal(expense.km).toFixed(2)}</td><td class="right">${decimal(expense.carExtra).toFixed(2)}</td><td class="right">${getExpenseTotal(expense).toFixed(2)}</td><td colspan="6">${escapeHtml(expense.notes)}</td></tr>`
+          `<tr><td>${formatDate(expense.date)}</td><td>${escapeHtml(expense.from)}</td><td>${escapeHtml(expense.to)}</td><td class="right">${decimal(expense.km).toFixed(2)}</td><td class="right">${decimal(expense.carExtra).toFixed(2)}</td><td class="right">${getExpenseTotal(expense).toFixed(2)}</td><td colspan="6">${escapeHtml([expense.client || "Sem cliente", expense.project || "Sem projeto", expense.notes].filter(Boolean).join(" · "))}</td></tr>`
       )
       .join("")}
     <tr><td colspan="3" class="label right">TOTAL R$</td><td class="right">${carKmTotal.toFixed(2)}</td><td class="right">${carExtraTotal.toFixed(2)}</td><td class="right">${(carKmTotal + carExtraTotal).toFixed(2)}</td><td colspan="6"></td></tr>
     <tr><td class="section" colspan="12">RESUMO</td></tr>
     <tr><td class="label" colspan="3">Total das Despesas(R$):</td><td class="right">${expensesTotal.toFixed(2)}</td><td colspan="8">Assinatura:</td></tr>
-    <tr><td colspan="12">RUIZ INOVAÇÕES EM SOLUÇÕES DE TI EIRELLI - CNPJ 30.131.027/0001-84</td></tr>
-    <tr><td colspan="12">Contato: Dpto Financeiro / Fone: 11 97669-3615 / e-mail: financeiro@risti.com.br</td></tr>
+    <tr><td class="section" colspan="12">TOTAIS POR CLIENTE E PROJETO</td></tr>
+    ${groupedTotals(rows).map(group => `<tr><td colspan="4">${escapeHtml(group.client)}</td><td colspan="4">${escapeHtml(group.project)}</td><td colspan="4">${group.total.toFixed(2)}</td></tr>`).join("")}
   </table>
 </body>
 </html>`;

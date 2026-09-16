@@ -14,6 +14,9 @@ function number(value) {
   return value;
 }
 function expenseData(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) bad("Despesa inválida.");
+  const client = text(input.client ?? "", 200), project = text(input.project ?? "", 200);
+  if (Boolean(client) !== Boolean(project)) bad("Informe o cliente e o projeto / área juntos.");
   const id = text(input.id, 100);
   if (!/^[a-zA-Z0-9-]+$/.test(id)) bad("Identificador inválido.");
   const date = text(input.date, 10);
@@ -21,6 +24,7 @@ function expenseData(input) {
   if (!["normal", "car"].includes(input.type)) bad("Tipo de despesa inválido.");
   if (input.type === "normal" && !categories.includes(input.category)) bad("Categoria inválida.");
   return {
+    client, project,
     id, date, type: input.type, category: input.type === "normal" ? input.category : "",
     amount: input.type === "normal" ? number(input.amount) : 0,
     from: input.type === "car" ? text(input.from || "") : "",
@@ -75,7 +79,7 @@ export async function handleApi(request, env) {
         db(env).prepare("SELECT * FROM expenses WHERE owner = ? ORDER BY date, id").bind(owner).all(),
         db(env).prepare("SELECT payload FROM reports WHERE owner = ?").bind(owner).first(),
       ]);
-      return json({ expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, isAdmin: isAdmin(request, env) });
+      return json({ expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, user: { email: request.headers.get("oai-authenticated-user-email") || "" }, isAdmin: isAdmin(request, env) });
     }
     if (url.pathname === "/api/report" && method === "PUT") {
       const report = reportData(await readBody(request));
@@ -112,6 +116,19 @@ export async function handleApi(request, env) {
       return new Response(object.body, { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
     }
     const expenseMatch = url.pathname.match(/^\/api\/expenses\/([a-zA-Z0-9-]+)$/);
+    if (expenseMatch && method === "PATCH") {
+      const input = await readBody(request);
+      const client = text(input.client, 200), project = text(input.project, 200);
+      if (!client || !project) bad("Informe o cliente e o projeto / área.");
+      const row = await db(env).prepare("SELECT * FROM expenses WHERE owner = ? AND id = ?").bind(owner, expenseMatch[1]).first();
+      if (!row) return json({ error: "Despesa não encontrada." }, 404);
+      const payload = JSON.stringify({ ...JSON.parse(row.payload), client, project });
+      const result = await db(env).prepare("UPDATE expenses SET payload = ? WHERE owner = ? AND id = ? AND payload = ?").bind(payload, owner, row.id, row.payload).run();
+      if ((result.meta?.changes ?? result.changes) !== 1) return json({ error: "A despesa mudou. Atualize a página e tente novamente." }, 409);
+      const saved = await db(env).prepare("SELECT * FROM expenses WHERE owner = ? AND id = ?").bind(owner, row.id).first();
+      if (!saved || saved.payload !== payload) return json({ error: "A despesa mudou. Atualize a página e tente novamente." }, 409);
+      return json({ expense: rowData(saved) });
+    }
     if (expenseMatch && method === "DELETE") {
       // Keep the database reference until storage deletion succeeds.
       const row = await db(env).prepare("SELECT receipt_key FROM expenses WHERE owner = ? AND id = ?").bind(owner, expenseMatch[1]).first();

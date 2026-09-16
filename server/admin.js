@@ -5,7 +5,7 @@ export function isAdmin(request, env) {
 }
 function invalid(message) { const error = new Error(message); error.status = 400; throw error; }
 const fields = {
-  expenses: { id: "id", date: "date", payload: "payload", receipt_key: "receipt_key", ...Object.fromEntries(["type", "category", "amount", "from", "to", "km", "carExtra", "notes", "receiptName", "createdAt"].map(key => [key.toLowerCase(), `json_extract(payload, '$.${key}')`])) },
+  expenses: { id: "id", date: "date", payload: "payload", receipt_key: "receipt_key", ...Object.fromEntries(["client", "project", "type", "category", "amount", "from", "to", "km", "carExtra", "notes", "receiptName", "createdAt"].map(key => [key.toLowerCase(), `json_extract(payload, '$.${key}')`])) },
   reports: { payload: "payload", ...Object.fromEntries(["reportMonth", "consultant", "route", "company", "kmRate"].map(key => [key.toLowerCase(), `json_extract(payload, '$.${key}')`])) },
 };
 

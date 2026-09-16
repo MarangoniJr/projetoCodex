@@ -11,6 +11,7 @@ let saving = false;
 let lastQuery = null;
 const fieldDefinitions = {
   expenses: [
+    ["client", "Cliente", "text"], ["project", "Projeto / área", "text"],
     ["date", "Data", "date"], ["type", "Tipo", ["normal", "car"]],
     ["category", "Categoria", ["Alimentação", "Transporte", "Refeição", "Outros", "Hotel", "Taxi", "Estacionamento", "Pedágio"]],
     ["amount", "Valor (R$)", "number"], ["from", "Origem", "text"], ["to", "Destino", "text"],

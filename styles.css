@@ -421,4 +421,11 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .import-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .import-label:focus-within { outline: 2px solid var(--brand); }
 .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.field-hint { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.expense-context { color: var(--brand-dark); font-weight: 600; overflow-wrap: anywhere; }
+#projectTotals p { overflow-wrap: anywhere; }
+dialog { width: min(520px, calc(100% - 32px)); max-height: 90vh; overflow: auto; border: 1px solid #a9bdb4; border-radius: 12px; padding: 24px; }
+dialog::backdrop { background: rgb(0 0 0 / 45%); }
+#classificationForm { display: grid; gap: 16px; }
+#classificationStatus { color: var(--danger); }
 #adminLink { color: var(--brand-dark); font-weight: 700; font-size: .9rem; padding: 10px 0; }

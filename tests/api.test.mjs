@@ -17,6 +17,43 @@ beforeEach(() => {
   } };
 });
 afterEach(() => database.close());
+
+test("clients and projects persist separately for each authenticated person", async () => {
+  const assignments = [
+    { id: "supply", client: "Queiroz de Queiroz", project: "Suprimentos", date: "2026-09-14" },
+    { id: "maintenance", client: "Queiroz de Queiroz", project: "Manutenção automotiva", date: "2026-09-16" },
+    { id: "other-client", client: "Outro cliente", project: "Consultoria" },
+  ];
+  for (const fields of assignments) assert.equal((await call("/api/expenses", "POST", { ...expense(), ...fields })).status, 201);
+  await call("/api/expenses", "POST", { ...expense(), ...assignments[0], project: "Projeto privado" }, "owner-b");
+  const a = await (await call("/api/state")).json();
+  const b = await (await call("/api/state", "GET", null, "owner-b")).json();
+  assert.equal(a.expenses.length, 3);
+  assert.equal(a.expenses.find(row => row.id === "supply").project, "Suprimentos");
+  assert.equal(b.expenses.length, 1);
+  assert.equal(b.expenses[0].project, "Projeto privado");
+  assert.deepEqual(b.report, {});
+});
+
+test("a person can classify legacy expenses without changing receipt or financial data", async () => {
+  await call("/api/expenses", "POST", expense());
+  const before = (await (await call("/api/state")).json()).expenses[0];
+  const fields = { client: "Cliente A", project: "Projeto A" };
+  assert.equal((await call("/api/expenses/test-1", "PATCH", fields, "owner-b")).status, 404);
+  assert.equal((await call("/api/expenses/test-1", "PATCH", fields, null)).status, 401);
+  assert.equal((await call("/api/expenses/test-1", "PATCH", { ...fields, project: " " })).status, 400);
+  assert.equal((await call("/api/expenses/test-1", "PATCH", fields, "owner-a", { Origin: "https://evil.example" })).status, 403);
+  const result = await call("/api/expenses/test-1", "PATCH", { ...fields, amount: 999, owner: "owner-b" });
+  assert.equal(result.status, 200);
+  assert.deepEqual((await result.json()).expense, { ...before, ...fields });
+  assert.equal((await call(before.receiptUrl)).status, 200);
+});
+
+test("assignment validation rejects invalid types and oversized names", async () => {
+  for (const fields of [{ client: {} }, { project: 1 }, { client: "x".repeat(201) }, { project: "x".repeat(201) }]) {
+    assert.equal((await call("/api/expenses", "POST", { ...expense(), ...fields })).status, 400);
+  }
+});
 const expense = () => ({ id: "test-1", date: "2026-09-14", type: "normal", category: "Alimentação", amount: 42.5, notes: "Almoço", receiptName: "foto.jpg", receiptData: "data:image/jpeg;base64,/9j/2Q==" });
 function call(path, method = "GET", data, user = "owner-a", headers = {}) {
   return handleApi(new Request(`https://test.example${path}`, {

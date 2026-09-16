@@ -1,14 +1,24 @@
 ﻿# Reembolso de Despesas
 
-Aplicativo de despesas de viagem com acesso privado pelo celular, banco SQLite e fotos vinculadas aos cadastros.
+Aplicativo de despesas de viagem por usuário, cliente e projeto, com banco SQLite e fotos vinculadas aos cadastros.
+
+## Contas, clientes e projetos
+
+O link pode ser compartilhado. Cada pessoa usa **Entrar com ChatGPT** com sua própria conta; despesas, comprovantes e dados do relatório ficam separados pelo identificador autenticado no servidor. **Sair / trocar de conta** permite alternar o acesso. O ambiente local continua usando uma única identidade simulada.
+
+Em cada despesa, escolha ou digite **Cliente** e **Projeto / área**. Por exemplo, use Queiroz de Queiroz / Suprimentos na segunda e terça, e Queiroz de Queiroz / Manutenção automotiva na quarta e quinta. As opções são obtidas dos lançamentos da própria conta; o projeto é sugerido conforme o cliente. Após salvar, a seleção é mantida para facilitar novos lançamentos.
+
+Filtre por cliente, projeto e mês ou semana. A semana substitui o mês e inclui todos os seus dias, mesmo quando atravessa a virada de mês ou ano. Os totais e **Exportar despesas filtradas** usam os mesmos filtros; o relatório identifica o cliente e projeto nas linhas e apresenta os totais por grupo.
+
+Despesas antigas permanecem sem classificação. Use **Alterar cliente / projeto** em cada despesa para classificá-las ou corrigir um vínculo, preservando valores e comprovantes. Os novos campos são armazenados no JSON existente, sem migração ou alteração dos registros antigos. O relatório não contém nome pessoal nem rodapé empresarial fixos.
 
 ## No celular
 
-1. Abra o endereço publicado e entre com a mesma conta usada para acessar o site.
+1. Abra o endereço publicado e entre com sua própria conta ChatGPT.
 2. Preencha os dados do relatório e da despesa.
 3. Toque em **Tirar foto** para usar a câmera traseira, ou em **Escolher imagem** para selecionar um comprovante existente. A abertura direta da câmera depende do navegador e do aparelho.
 4. Confira a prévia e toque em **Salvar despesa**. Aguarde a confirmação de gravação.
-5. Use **Exportar pacote do mês** para baixar o relatório e as fotos.
+5. Use **Exportar despesas filtradas** para baixar o relatório e as fotos da seleção.
 
 É necessária conexão para carregar, salvar ou exportar. Se a gravação falhar, os campos e a foto são mantidos na página para tentar novamente; não feche nem recarregue antes de salvar.
 

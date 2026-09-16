@@ -21,6 +21,12 @@
     </header>
 
     <main class="shell">
+      <section class="panel">
+        <strong id="accountName">Suas despesas, na sua conta</strong>
+        <p>Cada pessoa acessa somente seus clientes, projetos e comprovantes.</p>
+        <a id="signIn" href="/signin-with-chatgpt?return_to=%2F" target="_top">Entrar com ChatGPT</a>
+        <a id="signOut" href="/signout-with-chatgpt?return_to=%2F" target="_top" hidden>Sair / trocar de conta</a>
+      </section>
       <p id="connectionStatus" class="connection-status" role="status">Carregando despesas...</p>
       <div class="migration-actions">
         <button id="backupLocal" class="text-button" type="button" hidden>Baixar dados antigos deste navegador</button>
@@ -39,7 +45,7 @@
               <input id="reportMonth" name="reportMonth" type="month" required />
             </label>
             <label>
-              Nome do consultor
+              Seu nome
               <input id="consultant" name="consultant" type="text" required />
             </label>
           </div>
@@ -69,6 +75,17 @@
         </div>
 
         <form id="expenseForm" autocomplete="off">
+          <div class="form-row">
+            <label>Cliente
+              <input id="client" name="client" list="clientOptions" maxlength="200" required placeholder="Escolha ou digite um cliente" />
+              <datalist id="clientOptions"></datalist>
+            </label>
+            <label>Projeto / área
+              <input id="project" name="project" list="projectOptions" maxlength="200" required placeholder="Escolha ou digite um projeto" />
+              <datalist id="projectOptions"></datalist>
+            </label>
+          </div>
+          <p class="field-hint">Informe o projeto deste dia. Novos clientes e projetos ficam disponíveis após salvar a despesa.</p>
           <div class="form-row">
             <label>
               Data
@@ -121,7 +138,7 @@
 
           <label>
             Observações
-            <textarea id="notes" name="notes" rows="3" placeholder="Ex.: Almoço QQ, pedágio ida, km cliente"></textarea>
+            <textarea id="notes" name="notes" rows="3" placeholder="Ex.: Almoço durante visita ao cliente"></textarea>
           </label>
 
           <fieldset class="receipt-picker">
@@ -154,14 +171,35 @@
             Filtrar mês
             <input id="monthFilter" type="month" />
           </label>
-          <button class="secondary-button" id="exportPackage" type="button">Exportar pacote do mês</button>
+          <button class="secondary-button" id="exportPackage" type="button">Exportar despesas filtradas</button>
           <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
         </div>
       </section>
 
+      <section class="panel">
+        <div class="form-row">
+          <label>Cliente <select id="clientFilter"><option value="">Todos os clientes</option></select></label>
+          <label>Projeto / área <select id="projectFilter"><option value="">Todos os projetos</option></select></label>
+        </div>
+        <label>Semana (opcional) <input id="weekFilter" type="week" /></label>
+        <p class="field-hint">Ao escolher uma semana, ela substitui o filtro de mês, inclusive na exportação.</p>
+        <p id="filteredTotal" role="status"></p>
+        <div id="projectTotals"></div>
+      </section>
       <section class="expenses" id="expensesList" aria-live="polite"></section>
     </main>
 
+    <dialog id="classificationDialog">
+      <form id="classificationForm">
+        <h2>Cliente e projeto da despesa</h2>
+        <label>Cliente <input id="editClient" list="clientOptions" maxlength="200" required /></label>
+        <label>Projeto / área <input id="editProject" list="editProjectOptions" maxlength="200" required /></label>
+        <datalist id="editProjectOptions"></datalist>
+        <p id="classificationStatus" role="status"></p>
+        <button type="submit" class="primary-button">Salvar alteração</button>
+        <button id="cancelClassification" type="button" class="text-button">Cancelar</button>
+      </form>
+    </dialog>
     <template id="expenseTemplate">
       <article class="expense-card">
         <div class="expense-main">
@@ -173,8 +211,10 @@
           <strong class="amount"></strong>
         </div>
         <p class="notes"></p>
+        <p class="expense-context"></p>
         <img class="receipt-preview" alt="Comprovante anexado" hidden />
         <div class="expense-footer">
+          <button class="text-button classify-button" type="button">Alterar cliente / projeto</button>
           <button class="text-button delete-button" type="button">Excluir</button>
         </div>
       </article>
