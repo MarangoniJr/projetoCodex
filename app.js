@@ -89,6 +89,7 @@ function hydrateReport() {
   };
 
   report = { ...defaults, ...report };
+  report.client = report.client ?? report.company ?? "";
 
   [...reportForm.elements].forEach((field) => {
     if (field.name && report[field.name] !== undefined) {
@@ -103,6 +104,7 @@ function getReportData() {
   data.forEach((value, key) => {
     values[key] = String(value).trim();
   });
+  values.company = values.client || "";
   return values;
 }
 
@@ -214,7 +216,7 @@ function refreshEntryChoice(field, values) {
   for (const value of choices) select.add(new Option(value, value));
   select.add(new Option(field === "client" ? "+ Novo cliente" : "+ Novo projeto / área", "__new__"));
   const existing = choices.includes(input.value);
-  select.value = existing ? input.value : "__new__";
+  select.value = existing ? input.value : input.value ? "__new__" : "";
   input.hidden = existing;
 }
 
@@ -496,8 +498,8 @@ form.addEventListener("submit", async (event) => {
     expenses = [...expenses.filter(row => row.id !== result.expense.id), result.expense];
     monthFilter.value = result.expense.date.slice(0, 7);
     form.reset();
-    document.querySelector("#client").value = expense.client;
-    document.querySelector("#project").value = expense.project;
+    document.querySelector("#client").value = "";
+    document.querySelector("#project").value = "";
     clearReceipt();
     pendingExpenseId = null;
     dateInput.value = localDate(new Date());
@@ -505,7 +507,9 @@ form.addEventListener("submit", async (event) => {
     document.querySelector("#projectFilter").value = "";
     document.querySelector("#weekFilter").value = "";
     renderExpenses();
-    showStatus(receipt ? "Despesa e comprovante salvos na sua conta." : "Despesa salva na sua conta.");
+    showStatus(receipt ? "Despesa e comprovante salvos. Selecione cliente e projeto para a pr?xima despesa." : "Despesa salva. Selecione cliente e projeto para a pr?xima despesa.");
+    try { await persistReport(); }
+    catch { showStatus("Despesa salva. N?o foi poss?vel salvar a limpeza do cliente no cabe?alho; ele poder? reaparecer ao recarregar.", true); }
   } catch (error) { showStatus(error.message, true); }
   finally {
     inputs.forEach((field, index) => { field.disabled = disabledStates[index]; });
