@@ -208,21 +208,7 @@ function projectChoices(input, target) {
   fillChoices(target, expenses.filter(row => row.client === document.querySelector(input).value.trim()).map(row => row.project));
 }
 
-function refreshEntryChoice(field, values) {
-  const input = document.querySelector(`#${field}`);
-  const select = document.querySelector(`#${field}Select`);
-  const choices = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  select.replaceChildren(new Option("Selecione ou cadastre um novo", ""));
-  for (const value of choices) select.add(new Option(value, value));
-  select.add(new Option(field === "client" ? "+ Novo cliente" : "+ Novo projeto / área", "__new__"));
-  const existing = choices.includes(input.value);
-  select.value = existing ? input.value : input.value ? "__new__" : "";
-  input.hidden = existing;
-}
-
 function refreshChoices() {
-  refreshEntryChoice("client", expenses.map(row => row.client));
-  refreshEntryChoice("project", expenses.filter(row => row.client === document.querySelector("#client").value.trim()).map(row => row.project));
   fillChoices("#clientOptions", expenses.map(row => row.client));
   projectChoices("#client", "#projectOptions");
   fillChoices("#clientFilter", expenses.map(row => row.client), "Todos os clientes");
@@ -375,15 +361,6 @@ document.querySelector("#removeReceipt").addEventListener("click", clearReceipt)
 
 expenseType.addEventListener("change", toggleExpenseFields);
 monthFilter.addEventListener("change", renderExpenses);
-for (const field of ["client", "project"]) {
-  document.querySelector(`#${field}Select`).addEventListener("change", event => {
-    const input = document.querySelector(`#${field}`);
-    input.value = event.target.value === "__new__" ? "" : event.target.value;
-    input.hidden = !["", "__new__"].includes(event.target.value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    if (!input.hidden) input.focus();
-  });
-}
 const receiptDialog = document.querySelector("#receiptDialog");
 const receiptFull = document.querySelector("#receiptFull");
 const receiptZoom = document.querySelector("#receiptZoom");
@@ -412,7 +389,6 @@ list.addEventListener("click", event => {
 document.querySelector("#client").addEventListener("input", () => {
   document.querySelector("#project").value = "";
   projectChoices("#client", "#projectOptions");
-  refreshEntryChoice("project", expenses.filter(row => row.client === document.querySelector("#client").value.trim()).map(row => row.project));
 });
 for (const id of ["clientFilter", "projectFilter", "weekFilter"]) {
   document.querySelector(`#${id}`).addEventListener("change", () => {

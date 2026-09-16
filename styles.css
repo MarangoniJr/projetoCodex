@@ -440,3 +440,25 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 #receiptFull { display: block; max-width: 100%; max-height: 65vh; margin: auto; object-fit: contain; }
 #receiptFull.actual-size { max-width: none; max-height: none; margin: 0; }
 @media (max-width: 720px) { .export-filters, .controls-panel .toolbar { grid-template-columns: 1fr; } }
+
+.controls-panel { padding: 28px; }
+.export-filters { padding: 20px; background: #f5f8f7; border: 1px solid var(--line); border-radius: 10px; }
+.export-filters input, .export-filters select { background: #fff; min-height: 48px; }
+.week-filter { margin: 12px 0 20px; }
+.week-filter[open] { padding-bottom: 12px; }
+.week-filter > label { max-width: 320px; margin: 12px 0; }
+.closing-summary { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+#filteredTotal { margin: 0; padding: 18px 20px; background: var(--surface-strong); color: var(--brand-dark); font-size: 1.1rem; font-weight: 700; line-height: 1.5; }
+#projectTotals { padding: 0 20px; }
+#projectTotals p { margin: 0; padding: 14px 0; line-height: 1.5; }
+#projectTotals p + p { border-top: 1px solid var(--line); }
+.controls-panel .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+.controls-panel .toolbar .secondary-button { padding-inline: 28px; }
+.controls-panel .toolbar .danger-button { font-weight: 400; font-size: .9rem; }
+.report-form .field-hint, #expenseForm > .field-hint { margin: -4px 0 4px; }
+@media (max-width: 720px) {
+  .controls-panel { padding: 20px; }
+  .export-filters { padding: 16px; }
+  .controls-panel .toolbar { flex-direction: column; }
+  .controls-panel .toolbar button { width: 100%; }
+}

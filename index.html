@@ -58,11 +58,10 @@
           </div>
 
           <label>Cliente / Empresa / local
-            <select id="clientSelect" aria-label="Selecionar cliente"></select>
-            <input id="client" name="client" list="clientOptions" maxlength="200" required placeholder="Nome do novo cliente" />
+            <input id="client" name="client" list="clientOptions" maxlength="200" required placeholder="Digite ou selecione um cliente" autocomplete="off" aria-describedby="clientHint" />
             <datalist id="clientOptions"></datalist>
           </label>
-          <p class="field-hint">Selecione o cliente desta despesa. Após salvar, escolha novamente o cliente e o projeto.</p>
+          <p class="field-hint" id="clientHint">Nomes novos ficam disponíveis após salvar a despesa.</p>
           <label class="car-fields" hidden>
             Taxa de quilometragem
             <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" />
@@ -79,12 +78,11 @@
         <form id="expenseForm" autocomplete="off">
           <div class="form-row">
             <label>Projeto / área
-              <select id="projectSelect" aria-label="Selecionar projeto ou área"></select>
-              <input id="project" name="project" list="projectOptions" maxlength="200" required placeholder="Escolha ou digite um projeto" />
+              <input id="project" name="project" list="projectOptions" maxlength="200" required placeholder="Digite ou selecione um projeto" aria-describedby="projectHint" />
               <datalist id="projectOptions"></datalist>
             </label>
           </div>
-          <p class="field-hint">Selecione o projeto / área deste lançamento. Novos clientes e projetos ficam disponíveis após salvar a despesa.</p>
+          <p class="field-hint" id="projectHint">As sugestões mostram os projetos do cliente informado. Você também pode digitar um novo.</p>
           <div class="form-row">
             <label>
               Data
@@ -162,7 +160,7 @@
       <section class="panel controls-panel">
         <div class="section-title">
           <h2>Fechamento</h2>
-          <p>Exporte o mês com planilha e comprovantes em um único pacote.</p>
+          <p>Selecione o período e confira os totais antes de exportar.</p>
         </div>
 
         <div class="export-filters">
@@ -177,12 +175,14 @@
         <label>Semana (opcional) <input id="weekFilter" type="week" /></label>
         <p class="field-hint">Ao escolher uma semana, ela substitui o filtro de mês, inclusive na exportação.</p>
         </details>
-        <div class="toolbar">
-          <button class="secondary-button" id="exportPackage" type="button">Exportar Excel e comprovantes</button>
-          <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
-        </div>
+        <div class="closing-summary">
         <p id="filteredTotal" role="status"></p>
         <div id="projectTotals"></div>
+        </div>
+        <div class="toolbar">
+          <button class="secondary-button" id="exportPackage" type="button">Exportar Excel e comprovantes</button>
+          <button class="danger-button" id="clearAll" type="button">Excluir todas as despesas</button>
+        </div>
       </section>
       <section class="expenses" id="expensesList" aria-live="polite"></section>
     </main>
