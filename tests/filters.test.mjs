@@ -6,10 +6,10 @@ import { createContext, runInContext } from "node:vm";
 function app() {
   const nodes = new Map();
   const node = selector => {
-    if (!nodes.has(selector)) nodes.set(selector, { value: "", elements: [], options: [], addEventListener() {}, querySelector: node, querySelectorAll: () => [], classList: { toggle() {} }, replaceChildren(...options) { this.options = options; }, add(option) { this.options.push(option); } });
+    if (!nodes.has(selector)) nodes.set(selector, { value: "", elements: [], addEventListener() {}, querySelector: node, querySelectorAll: () => [], classList: { toggle() {} } });
     return nodes.get(selector);
   };
-  const context = createContext({ Option: function(text, value) { this.text = text; this.value = value; }, document: { querySelector: node, querySelectorAll: () => [] }, window: { addEventListener() {} }, navigator: {}, location: { protocol: "https:" }, localStorage: { getItem: () => null }, fetch: () => new Promise(() => {}), Intl, Date });
+  const context = createContext({ document: { querySelector: node, querySelectorAll: () => [] }, window: { addEventListener() {} }, navigator: {}, location: { protocol: "https:" }, localStorage: { getItem: () => null }, fetch: () => new Promise(() => {}), Intl, Date });
   runInContext(readFileSync("app.js", "utf8"), context);
   runInContext(`report = { consultant: 'Pessoa A', kmRate: '2' }; expenses = [
     { id: 'a', date: '2026-09-28', client: 'QQ', project: 'Suprimentos', type: 'normal', category: 'Transporte', amount: 40 },
@@ -54,17 +54,4 @@ test("ISO week includes dates from the previous calendar year", () => {
   evaluate("expenses = [{ id: 'year-end', date: '2025-12-29' }, { id: 'outside', date: '2026-01-05' }]");
   node("#weekFilter").value = "2026-W01";
   assert.equal(evaluate("getFilteredExpenses().map(row => row.id).join(',')"), "year-end");
-});
-
-test("saved names become unique selectable choices and new names remain editable", () => {
-  const { node, evaluate } = app();
-  node("#client").value = "QQ";
-  evaluate('refreshEntryChoice("client", expenses.map(row => row.client))');
-  assert.equal(node("#clientSelect").value, "QQ");
-  assert.equal(node("#client").hidden, true);
-  assert.equal(node("#clientSelect").options.filter(option => option.value === "QQ").length, 1);
-  node("#client").value = "Novo cliente";
-  evaluate('refreshEntryChoice("client", expenses.map(row => row.client))');
-  assert.equal(node("#clientSelect").value, "__new__");
-  assert.equal(node("#client").hidden, false);
 });

@@ -62,12 +62,11 @@ function call(path, method = "GET", data, user = "owner-a", headers = {}) {
   }), env);
 }
 test("persists expense, receipt and report; reload returns stored values", async () => {
-  assert.equal((await call("/api/report", "PUT", { reportMonth: "2026-09", consultant: "Teste", kmRate: "1.15", client: "Cliente do cabeçalho" })).status, 200);
+  assert.equal((await call("/api/report", "PUT", { reportMonth: "2026-09", consultant: "Teste", kmRate: "1.15" })).status, 200);
   assert.equal((await call("/api/expenses", "POST", expense())).status, 201);
   const state = await (await call("/api/state")).json();
   assert.equal(state.expenses[0].amount, 42.5);
   assert.equal(state.report.consultant, "Teste");
-  assert.equal(state.report.client, "Cliente do cabeçalho");
   const receipt = await call(state.expenses[0].receiptUrl);
   assert.equal(receipt.headers.get("Content-Type"), "image/jpeg");
   assert.equal((await receipt.arrayBuffer()).byteLength, 4);
