@@ -12,6 +12,16 @@
   --shadow: 0 18px 45px rgba(23, 33, 30, 0.1);
 }
 
+.catalog-picker { display: flex; gap: 8px; align-items: stretch; }
+.catalog-picker select { flex: 1; min-width: 0; width: 0; }
+.add-catalog { width: 48px; flex: 0 0 48px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand); color: white; font-size: 1.5rem; cursor: pointer; }
+.add-catalog:hover { background: var(--brand-dark); }
+.add-catalog:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+#catalogForm { display: grid; gap: 16px; }
+#catalogForm h2, #catalogForm p { margin: 0; }
+#catalogStatus { color: var(--danger); }
+.catalog-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
 * {
   box-sizing: border-box;
 }

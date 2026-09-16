@@ -15,6 +15,8 @@ const installButton = document.querySelector("#installButton");
 
 let deferredInstallPrompt = null;
 let expenses = [];
+let clients = [];
+let projects = [];
 let report = {};
 let ready = false;
 let pendingReceipt = null;
@@ -59,11 +61,14 @@ async function initialize() {
     if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
     const state = await api("/api/state");
     expenses = state.expenses;
+    clients = state.clients || [];
+    projects = state.projects || [];
     document.querySelector("#accountName").textContent = state.user?.email || "Minha conta";
     document.querySelector("#signIn").hidden = true;
     document.querySelector("#signOut").hidden = false;
     document.querySelector("#adminLink").hidden = !state.isAdmin;
     report = state.report;
+    refreshChoices();
     hydrateReport();
     ready = true;
     reportForm.querySelectorAll("input, select").forEach(field => { field.disabled = false; });
@@ -205,12 +210,24 @@ function fillChoices(selector, values, label) {
 }
 
 function projectChoices(input, target) {
-  fillChoices(target, expenses.filter(row => row.client === document.querySelector(input).value.trim()).map(row => row.project));
+  const client = document.querySelector(input).value.trim();
+  fillChoices(target, [...projects.filter(row => row.client === client).map(row => row.name), ...expenses.filter(row => row.client === client).map(row => row.project)]);
 }
 
+function catalogSelect(selector, values, placeholder) {
+  const element = document.querySelector(selector), previous = element.value;
+  element.replaceChildren(new Option(placeholder, ""));
+  for (const value of [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"))) element.add(new Option(value, value));
+  element.value = [...element.options].some(option => option.value === previous) ? previous : "";
+}
 function refreshChoices() {
-  fillChoices("#clientOptions", expenses.map(row => row.client));
-  projectChoices("#client", "#projectOptions");
+  const names = [...clients.map(row => row.name), ...expenses.map(row => row.client)];
+  catalogSelect("#client", names, "Selecione um cliente");
+  const selectedClient = document.querySelector("#client").value;
+  catalogSelect("#project", [...projects.filter(row => row.client === selectedClient).map(row => row.name), ...expenses.filter(row => row.client === selectedClient).map(row => row.project)], "Selecione um projeto");
+  document.querySelector("#addClient").disabled = !ready;
+  document.querySelector("#addProject").disabled = !ready || !selectedClient;
+  fillChoices("#clientOptions", names);
   fillChoices("#clientFilter", expenses.map(row => row.client), "Todos os clientes");
   const client = document.querySelector("#clientFilter").value;
   fillChoices("#projectFilter", expenses.filter(row => !client || (client === "__unassigned__" ? !row.client : row.client === client)).map(row => row.project), "Todos os projetos");
@@ -362,6 +379,49 @@ document.querySelector("#removeReceipt").addEventListener("click", clearReceipt)
 expenseType.addEventListener("change", toggleExpenseFields);
 monthFilter.addEventListener("change", renderExpenses);
 const receiptDialog = document.querySelector("#receiptDialog");
+let catalogKind = "client", catalogClient = "";
+const catalogDialog = document.querySelector("#catalogDialog");
+catalogDialog.addEventListener("cancel", event => {
+  if (document.querySelector("#cancelCatalog").disabled) event.preventDefault();
+});
+for (const kind of ["client", "project"]) {
+  document.querySelector(kind === "client" ? "#addClient" : "#addProject").addEventListener("click", () => {
+    if (!ready) return;
+    catalogKind = kind;
+    catalogClient = document.querySelector("#client").value;
+    if (kind === "project" && !catalogClient) return;
+    document.querySelector("#catalogTitle").textContent = kind === "client" ? "Cadastrar cliente" : "Cadastrar projeto";
+    document.querySelector("#catalogContext").textContent = kind === "project" ? `Cliente: ${catalogClient}` : "O cliente ficará disponível para as próximas despesas.";
+    document.querySelector("#catalogName").value = "";
+    document.querySelector("#catalogStatus").textContent = "";
+    catalogDialog.showModal();
+    document.querySelector("#catalogName").focus();
+  });
+}
+document.querySelector("#cancelCatalog").addEventListener("click", () => catalogDialog.close());
+document.querySelector("#catalogForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = event.target.querySelector('button[type="submit"]');
+  if (button.disabled) return;
+  const name = document.querySelector("#catalogName").value.trim();
+  if (!name) { document.querySelector("#catalogStatus").textContent = "Informe um nome."; return; }
+  button.disabled = true;
+  document.querySelector("#cancelCatalog").disabled = true;
+  try {
+    const result = await api(catalogKind === "client" ? "/api/clients" : "/api/projects", { method: "POST", body: JSON.stringify({ name, client: catalogClient }) });
+    if (catalogKind === "client") {
+      clients.push(result.client);
+      refreshChoices();
+      document.querySelector("#client").value = result.client.name;
+      document.querySelector("#project").value = "";
+    } else projects.push(result.project);
+    refreshChoices();
+    if (catalogKind === "project") document.querySelector("#project").value = result.project.name;
+    catalogDialog.close();
+    showStatus("Cadastro salvo e selecionado. Você já pode usar na despesa.");
+  } catch (error) { document.querySelector("#catalogStatus").textContent = error.message; }
+  finally { button.disabled = false; document.querySelector("#cancelCatalog").disabled = false; }
+});
 const receiptFull = document.querySelector("#receiptFull");
 const receiptZoom = document.querySelector("#receiptZoom");
 document.querySelector("#closeReceipt").addEventListener("click", () => receiptDialog.close());
@@ -388,7 +448,7 @@ list.addEventListener("click", event => {
 
 document.querySelector("#client").addEventListener("input", () => {
   document.querySelector("#project").value = "";
-  projectChoices("#client", "#projectOptions");
+  refreshChoices();
 });
 for (const id of ["clientFilter", "projectFilter", "weekFilter"]) {
   document.querySelector(`#${id}`).addEventListener("change", () => {

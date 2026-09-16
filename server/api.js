@@ -75,11 +75,26 @@ export async function handleApi(request, env) {
   try {
     if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, env, owner, { readBody, expenseData, reportData });
     if (url.pathname === "/api/state" && method === "GET") {
-      const [rows, report] = await Promise.all([
+      const [rows, report, clients, projects] = await Promise.all([
         db(env).prepare("SELECT * FROM expenses WHERE owner = ? ORDER BY date, id").bind(owner).all(),
         db(env).prepare("SELECT payload FROM reports WHERE owner = ?").bind(owner).first(),
+        db(env).prepare("SELECT name FROM clients WHERE owner = ? ORDER BY name").bind(owner).all(),
+        db(env).prepare("SELECT client, name FROM projects WHERE owner = ? ORDER BY name").bind(owner).all(),
       ]);
-      return json({ expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, user: { email: request.headers.get("oai-authenticated-user-email") || "" }, isAdmin: isAdmin(request, env) });
+      return json({ clients: clients.results, projects: projects.results, expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, user: { email: request.headers.get("oai-authenticated-user-email") || "" }, isAdmin: isAdmin(request, env) });
+    }
+    if (url.pathname === "/api/clients" && method === "POST") {
+      const input = await readBody(request), name = text(input.name, 200);
+      if (!name) bad("Informe o nome do cliente.");
+      await db(env).prepare("INSERT OR IGNORE INTO clients (owner, name) VALUES (?, ?)").bind(owner, name).run();
+      return json({ client: { name } }, 201);
+    }
+    if (url.pathname === "/api/projects" && method === "POST") {
+      const input = await readBody(request), name = text(input.name, 200), client = text(input.client, 200);
+      if (!name || !client) bad("Informe o cliente e o nome do projeto.");
+      if (!await db(env).prepare("SELECT name FROM clients WHERE owner = ? AND name = ?").bind(owner, client).first()) bad("Selecione um cliente cadastrado.");
+      await db(env).prepare("INSERT OR IGNORE INTO projects (owner, client, name) VALUES (?, ?, ?)").bind(owner, client, name).run();
+      return json({ project: { client, name } }, 201);
     }
     if (url.pathname === "/api/report" && method === "PUT") {
       const report = reportData(await readBody(request));

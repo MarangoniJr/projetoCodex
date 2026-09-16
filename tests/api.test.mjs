@@ -55,6 +55,21 @@ test("assignment validation rejects invalid types and oversized names", async ()
   }
 });
 const expense = () => ({ id: "test-1", date: "2026-09-14", type: "normal", category: "Alimentação", amount: 42.5, notes: "Almoço", receiptName: "foto.jpg", receiptData: "data:image/jpeg;base64,/9j/2Q==" });
+test("catalogs persist without expenses, deduplicate and isolate owners", async () => {
+  assert.equal((await call("/api/clients", "POST", { name: "Cliente A" })).status, 201);
+  assert.equal((await call("/api/clients", "POST", { name: " Cliente A " })).status, 201);
+  assert.equal((await call("/api/projects", "POST", { name: "Projeto", client: "Cliente A" }, "owner-b")).status, 400);
+  assert.equal((await call("/api/projects", "POST", { name: "Projeto", client: "Cliente A" })).status, 201);
+  assert.equal((await call("/api/projects", "POST", { name: "Projeto", client: "Cliente A" })).status, 201);
+  assert.equal((await call("/api/clients", "POST", { name: " " })).status, 400);
+  assert.equal((await call("/api/clients", "POST", { name: "x".repeat(201) })).status, 400);
+  assert.equal((await call("/api/clients", "POST", { name: "X" }, null)).status, 401);
+  const state = await (await call("/api/state")).json();
+  assert.deepEqual(state.clients, [{ name: "Cliente A" }]);
+  assert.deepEqual(state.projects, [{ client: "Cliente A", name: "Projeto" }]);
+  assert.equal(state.expenses.length, 0);
+  assert.deepEqual((await (await call("/api/state", "GET", null, "owner-b")).json()).clients, []);
+});
 function call(path, method = "GET", data, user = "owner-a", headers = {}) {
   return handleApi(new Request(`https://test.example${path}`, {
     method, headers: { "Content-Type": "application/json", ...(user ? { "oai-authenticated-user-id": user } : {}), ...headers },
