@@ -53,7 +53,7 @@ async function api(path, options = {}) {
 
 async function initialize() {
   saveButton.disabled = true;
-  reportForm.querySelectorAll("input").forEach(field => { field.disabled = true; });
+  reportForm.querySelectorAll("input, select").forEach(field => { field.disabled = true; });
   document.querySelector("#backupLocal").hidden = !loadJson(storageKey, []).length;
   try {
     if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
@@ -66,7 +66,7 @@ async function initialize() {
     report = state.report;
     hydrateReport();
     ready = true;
-    reportForm.querySelectorAll("input").forEach(field => { field.disabled = false; });
+    reportForm.querySelectorAll("input, select").forEach(field => { field.disabled = false; });
     saveButton.disabled = false;
     renderExpenses();
     showStatus("Despesas carregadas. Os cadastros serão salvos na sua conta.");
@@ -206,7 +206,21 @@ function projectChoices(input, target) {
   fillChoices(target, expenses.filter(row => row.client === document.querySelector(input).value.trim()).map(row => row.project));
 }
 
+function refreshEntryChoice(field, values) {
+  const input = document.querySelector(`#${field}`);
+  const select = document.querySelector(`#${field}Select`);
+  const choices = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  select.replaceChildren(new Option("Selecione ou cadastre um novo", ""));
+  for (const value of choices) select.add(new Option(value, value));
+  select.add(new Option(field === "client" ? "+ Novo cliente" : "+ Novo projeto / área", "__new__"));
+  const existing = choices.includes(input.value);
+  select.value = existing ? input.value : "__new__";
+  input.hidden = existing;
+}
+
 function refreshChoices() {
+  refreshEntryChoice("client", expenses.map(row => row.client));
+  refreshEntryChoice("project", expenses.filter(row => row.client === document.querySelector("#client").value.trim()).map(row => row.project));
   fillChoices("#clientOptions", expenses.map(row => row.client));
   projectChoices("#client", "#projectOptions");
   fillChoices("#clientFilter", expenses.map(row => row.client), "Todos os clientes");
@@ -263,6 +277,7 @@ function renderExpenses() {
       preview.src = expense.receiptUrl || expense.receiptData;
       preview.hidden = false;
       preview.loading = "lazy";
+      node.querySelector(".view-receipt-button").hidden = false;
     }
 
     list.append(node);
@@ -358,9 +373,44 @@ document.querySelector("#removeReceipt").addEventListener("click", clearReceipt)
 
 expenseType.addEventListener("change", toggleExpenseFields);
 monthFilter.addEventListener("change", renderExpenses);
+for (const field of ["client", "project"]) {
+  document.querySelector(`#${field}Select`).addEventListener("change", event => {
+    const input = document.querySelector(`#${field}`);
+    input.value = event.target.value === "__new__" ? "" : event.target.value;
+    input.hidden = !["", "__new__"].includes(event.target.value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (!input.hidden) input.focus();
+  });
+}
+const receiptDialog = document.querySelector("#receiptDialog");
+const receiptFull = document.querySelector("#receiptFull");
+const receiptZoom = document.querySelector("#receiptZoom");
+document.querySelector("#closeReceipt").addEventListener("click", () => receiptDialog.close());
+receiptDialog.addEventListener("close", () => receiptFull.removeAttribute("src"));
+receiptZoom.addEventListener("click", () => {
+  const actual = receiptZoom.getAttribute("aria-pressed") !== "true";
+  receiptZoom.setAttribute("aria-pressed", String(actual));
+  receiptZoom.textContent = actual ? "Ajustar à tela" : "Ver em tamanho real";
+  receiptFull.classList.toggle("actual-size", actual);
+});
+receiptFull.addEventListener("load", () => { document.querySelector("#receiptViewStatus").textContent = ""; });
+receiptFull.addEventListener("error", () => { document.querySelector("#receiptViewStatus").textContent = "Não foi possível carregar o comprovante. Feche e tente novamente."; });
+list.addEventListener("click", event => {
+  if (!event.target.matches(".view-receipt-button")) return;
+  const expense = expenses.find(row => row.id === event.target.closest(".expense-card").dataset.id);
+  document.querySelector("#receiptTitle").textContent = `Comprovante · ${formatDate(expense.date)}`;
+  document.querySelector("#receiptViewStatus").textContent = "Carregando comprovante…";
+  receiptFull.classList.remove("actual-size");
+  receiptZoom.setAttribute("aria-pressed", "false");
+  receiptZoom.textContent = "Ver em tamanho real";
+  receiptFull.src = expense.receiptUrl || expense.receiptData;
+  receiptDialog.showModal();
+});
+
 document.querySelector("#client").addEventListener("input", () => {
   document.querySelector("#project").value = "";
   projectChoices("#client", "#projectOptions");
+  refreshEntryChoice("project", expenses.filter(row => row.client === document.querySelector("#client").value.trim()).map(row => row.project));
 });
 for (const id of ["clientFilter", "projectFilter", "weekFilter"]) {
   document.querySelector(`#${id}`).addEventListener("change", () => {
@@ -420,7 +470,7 @@ form.addEventListener("submit", async (event) => {
     id: pendingExpenseId || (pendingExpenseId = createId()),
     type,
     date: data.get("date"),
-    client: String(data.get("client")).trim(), project: String(data.get("project")).trim(),
+    client: document.querySelector("#client").value.trim(), project: String(data.get("project")).trim(),
     category: type === "normal" ? data.get("category") : "",
     amount: type === "normal" ? decimal(data.get("amount")) : 0,
     from: type === "car" ? String(data.get("from")).trim() : "",

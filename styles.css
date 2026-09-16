@@ -429,3 +429,14 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 #classificationForm { display: grid; gap: 16px; }
 #classificationStatus { color: var(--danger); }
 #adminLink { color: var(--brand-dark); font-weight: 700; font-size: .9rem; padding: 10px 0; }
+
+.export-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.week-filter { margin: 18px 0; }
+.week-filter summary { cursor: pointer; color: var(--brand-dark); padding: 8px 0; }
+.controls-panel .toolbar { grid-template-columns: 1fr auto; }
+.receipt-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+#receiptDialog { width: min(1100px, calc(100% - 24px)); }
+.receipt-viewport { overflow: auto; max-height: 65vh; background: var(--surface-strong); }
+#receiptFull { display: block; max-width: 100%; max-height: 65vh; margin: auto; object-fit: contain; }
+#receiptFull.actual-size { max-width: none; max-height: none; margin: 0; }
+@media (max-width: 720px) { .export-filters, .controls-panel .toolbar { grid-template-columns: 1fr; } }

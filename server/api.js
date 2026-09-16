@@ -40,7 +40,7 @@ function rowData(row) {
 }
 function reportData(input) {
   const report = {};
-  for (const field of ["reportMonth", "consultant", "route", "company", "kmRate"]) report[field] = text(String(input[field] ?? ""));
+  for (const field of ["reportMonth", "consultant", "route", "company", "kmRate", "client"]) report[field] = text(String(input[field] ?? ""));
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(report.reportMonth)) bad("Mês inválido.");
   number(Number(report.kmRate));
   return report;

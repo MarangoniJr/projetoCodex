@@ -61,6 +61,12 @@
             </label>
           </div>
 
+          <label>Cliente
+            <select id="clientSelect" aria-label="Selecionar cliente"></select>
+            <input id="client" name="client" list="clientOptions" maxlength="200" required placeholder="Nome do novo cliente" />
+            <datalist id="clientOptions"></datalist>
+          </label>
+          <p class="field-hint">Este cliente será usado nos próximos lançamentos.</p>
           <label class="car-fields" hidden>
             Taxa de quilometragem
             <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" />
@@ -76,16 +82,13 @@
 
         <form id="expenseForm" autocomplete="off">
           <div class="form-row">
-            <label>Cliente
-              <input id="client" name="client" list="clientOptions" maxlength="200" required placeholder="Escolha ou digite um cliente" />
-              <datalist id="clientOptions"></datalist>
-            </label>
             <label>Projeto / área
+              <select id="projectSelect" aria-label="Selecionar projeto ou área"></select>
               <input id="project" name="project" list="projectOptions" maxlength="200" required placeholder="Escolha ou digite um projeto" />
               <datalist id="projectOptions"></datalist>
             </label>
           </div>
-          <p class="field-hint">Informe o projeto deste dia. Novos clientes e projetos ficam disponíveis após salvar a despesa.</p>
+          <p class="field-hint">Selecione o projeto / área deste lançamento. Novos clientes e projetos ficam disponíveis após salvar a despesa.</p>
           <div class="form-row">
             <label>
               Data
@@ -166,29 +169,34 @@
           <p>Exporte o mês com planilha e comprovantes em um único pacote.</p>
         </div>
 
-        <div class="toolbar">
+        <div class="export-filters">
           <label>
             Filtrar mês
             <input id="monthFilter" type="month" />
           </label>
-          <button class="secondary-button" id="exportPackage" type="button">Exportar despesas filtradas</button>
-          <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="form-row">
           <label>Cliente <select id="clientFilter"><option value="">Todos os clientes</option></select></label>
           <label>Projeto / área <select id="projectFilter"><option value="">Todos os projetos</option></select></label>
         </div>
+        <details class="week-filter"><summary>Filtrar por semana</summary>
         <label>Semana (opcional) <input id="weekFilter" type="week" /></label>
         <p class="field-hint">Ao escolher uma semana, ela substitui o filtro de mês, inclusive na exportação.</p>
+        </details>
+        <div class="toolbar">
+          <button class="secondary-button" id="exportPackage" type="button">Exportar Excel e comprovantes</button>
+          <button class="danger-button" id="clearAll" type="button">Limpar tudo</button>
+        </div>
         <p id="filteredTotal" role="status"></p>
         <div id="projectTotals"></div>
       </section>
       <section class="expenses" id="expensesList" aria-live="polite"></section>
     </main>
 
+    <dialog id="receiptDialog" aria-labelledby="receiptTitle">
+      <div class="receipt-dialog-header"><h2 id="receiptTitle">Comprovante</h2><button id="closeReceipt" type="button" class="secondary-button">Fechar</button></div>
+      <p id="receiptViewStatus" role="status"></p>
+      <button id="receiptZoom" type="button" class="text-button" aria-pressed="false">Ver em tamanho real</button>
+      <div class="receipt-viewport"><img id="receiptFull" alt="Comprovante da despesa" /></div>
+    </dialog>
     <dialog id="classificationDialog">
       <form id="classificationForm">
         <h2>Cliente e projeto da despesa</h2>
@@ -213,6 +221,7 @@
         <p class="notes"></p>
         <p class="expense-context"></p>
         <img class="receipt-preview" alt="Comprovante anexado" hidden />
+        <button class="text-button view-receipt-button" type="button" hidden>Visualizar comprovante</button>
         <div class="expense-footer">
           <button class="text-button classify-button" type="button">Alterar cliente / projeto</button>
           <button class="text-button delete-button" type="button">Excluir</button>
