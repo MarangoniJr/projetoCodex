@@ -507,9 +507,9 @@ form.addEventListener("submit", async (event) => {
     document.querySelector("#projectFilter").value = "";
     document.querySelector("#weekFilter").value = "";
     renderExpenses();
-    showStatus(receipt ? "Despesa e comprovante salvos. Selecione cliente e projeto para a pr?xima despesa." : "Despesa salva. Selecione cliente e projeto para a pr?xima despesa.");
+    showStatus(receipt ? "Despesa e comprovante salvos. Selecione cliente e projeto para a próxima despesa." : "Despesa salva. Selecione cliente e projeto para a próxima despesa.");
     try { await persistReport(); }
-    catch { showStatus("Despesa salva. N?o foi poss?vel salvar a limpeza do cliente no cabe?alho; ele poder? reaparecer ao recarregar.", true); }
+    catch { showStatus("Despesa salva. Não foi possível salvar a limpeza do cliente no cabeçalho; ele poderá reaparecer ao recarregar.", true); }
   } catch (error) { showStatus(error.message, true); }
   finally {
     inputs.forEach((field, index) => { field.disabled = disabledStates[index]; });
