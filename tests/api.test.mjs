@@ -190,6 +190,37 @@ test("invalid edits, unauthorized editors and foreign origin do not write", asyn
   assert.equal((await call("/api/admin/records/expenses/test-1", "PUT", body, "owner-a", { Origin: "https://evil.example", "oai-authenticated-user-email": "admin@example.com" })).status, 403);
   assert.equal(database.prepare("SELECT payload FROM expenses").get().payload, original.version);
 });
+test("admin catalogs support queries, linked renames and safe deletion", async () => {
+  await call("/api/clients", "POST", { name: "Old" });
+  await call("/api/projects", "POST", { client: "Old", name: "Project" });
+  await call("/api/expenses", "POST", { ...expense(), client: "Old", project: "Project" });
+  const path = "/api/admin/catalog/clients?name=Old";
+  const record = await (await adminCall(path)).json();
+  assert.equal((await adminCall(path, "DELETE", { version: record.version })).status, 409);
+  assert.equal((await adminCall(path, "PUT", { version: record.version, data: { name: "New" } })).status, 200);
+  const state = await (await call("/api/state")).json();
+  assert.equal(state.expenses[0].client, "New");
+  assert.equal(state.projects[0].client, "New");
+  const query = await (await adminCall("/api/admin/query", "POST", { sql: "SELECT * FROM projects WHERE client = 'New'" })).json();
+  assert.equal(query.editable, true);
+  assert.equal(query.rows[0].name, "Project");
+  assert.equal(compileQuery("SELECT name FROM projects", "owner-a").editable, false);
+  const projectPath = "/api/admin/catalog/projects?client=New&name=Project";
+  const project = await (await adminCall(projectPath)).json();
+  assert.equal((await adminCall(projectPath, "PUT", { version: project.version, data: { name: "Fixed" } })).status, 200);
+  assert.equal((await (await call("/api/state")).json()).expenses[0].project, "Fixed");
+  await call("/api/clients", "POST", { name: "Unused" });
+  const unusedPath = "/api/admin/catalog/clients?name=Unused";
+  const unused = await (await adminCall(unusedPath)).json();
+  assert.equal((await adminCall(unusedPath, "DELETE", { version: unused.version }, "owner-b")).status, 404);
+  assert.equal((await adminCall(unusedPath, "DELETE", { version: unused.version }, "owner-a", "viewer@example.com")).status, 403);
+  assert.equal((await adminCall(unusedPath, "DELETE", { version: unused.version })).status, 200);
+  await call("/api/projects", "POST", { client: "New", name: "Unused project" });
+  const p = "/api/admin/catalog/projects?client=New&name=Unused%20project";
+  const r = await (await adminCall(p)).json();
+  assert.equal((await adminCall(p, "DELETE", { version: r.version })).status, 200);
+});
+
 test("admin can query and edit report with validation and conflict detection", async () => {
   await call("/api/report", "PUT", { reportMonth: "2026-09", consultant: "Teste", kmRate: "1.15" });
   const original = await (await adminCall("/api/admin/records/reports")).json();

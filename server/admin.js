@@ -5,6 +5,8 @@ export function isAdmin(request, env) {
 }
 function invalid(message) { const error = new Error(message); error.status = 400; throw error; }
 const fields = {
+  clients: { name: "name" },
+  projects: { client: "client", name: "name" },
   expenses: { id: "id", date: "date", payload: "payload", receipt_key: "receipt_key", ...Object.fromEntries(["client", "project", "type", "category", "amount", "from", "to", "km", "carExtra", "notes", "receiptName", "createdAt"].map(key => [key.toLowerCase(), `json_extract(payload, '$.${key}')`])) },
   reports: { payload: "payload", ...Object.fromEntries(["reportMonth", "consultant", "route", "company", "kmRate"].map(key => [key.toLowerCase(), `json_extract(payload, '$.${key}')`])) },
 };
@@ -54,12 +56,12 @@ export function compileQuery(sql, owner) {
   }
   expect("FROM");
   const table = tokens[i++]?.toLowerCase();
-  if (!Object.hasOwn(fields, table || "")) invalid("Escolha a tabela expenses ou reports.");
+  if (!Object.hasOwn(fields, table || "")) invalid("Escolha expenses, reports, clients ou projects.");
   const resolve = column => {
     if (!Object.hasOwn(fields[table], column.field)) invalid(`Coluna não disponível: ${column.field}.`);
     return fields[table][column.field];
   };
-  const defaultColumns = table === "expenses" ? ["id", "date", "type", "category", "amount", "km", "carextra", "notes", "receipt_key"] : ["reportmonth", "consultant", "route", "company", "kmrate"];
+  const defaultColumns = table === "clients" ? ["name"] : table === "projects" ? ["client", "name"] : table === "expenses" ? ["id", "date", "type", "category", "amount", "km", "carextra", "notes", "receipt_key"] : ["reportmonth", "consultant", "route", "company", "kmrate"];
   const selected = star ? defaultColumns.map(field => ({ field })) : columns;
   const names = selected.map(column => column.alias || column.field);
   if (new Set(names.map(name => name.toLowerCase())).size !== names.length) invalid("Use nomes diferentes para as colunas selecionadas.");
@@ -93,13 +95,55 @@ export function compileQuery(sql, owner) {
   if (peek() === ";") i++;
   if (i !== tokens.length) invalid("Use um SELECT por vez. São aceitos WHERE com AND, ORDER BY e LIMIT.");
   query += " LIMIT ?"; values.push(limit + 1);
-  const editable = table === "reports" || selected.some(column => column.field === "id" && (!column.alias || column.alias === "id"));
+  const hasKey = key => selected.some(column => column.field === key && (!column.alias || column.alias === key));
+  const editable = (table === "clients" && hasKey("name")) || (table === "projects" && hasKey("name") && hasKey("client")) || table === "reports" || (table === "expenses" && hasKey("id"));
   return { query, values, table, limit, columns: names, editable };
 }
 
 export async function handleAdmin(request, env, owner, { readBody, expenseData, reportData }) {
   if (!isAdmin(request, env)) return json({ error: "Área exclusiva do administrador deste aplicativo." }, 403);
   const path = new URL(request.url).pathname;
+  const catalog = path.match(/^\/api\/admin\/catalog\/(clients|projects)$/);
+  if (catalog) {
+    const table = catalog[1], url = new URL(request.url);
+    const name = url.searchParams.get("name"), client = url.searchParams.get("client");
+    if (!name || (table === "projects" && !client)) invalid("Cadastro inválido.");
+    const where = table === "clients" ? "owner = ? AND name = ?" : "owner = ? AND client = ? AND name = ?";
+    const keys = table === "clients" ? [owner, name] : [owner, client, name];
+    const row = await env.DB.prepare(`SELECT * FROM ${table} WHERE ${where}`).bind(...keys).first();
+    if (!row) return json({ error: "Cadastro não encontrado. Atualize a consulta." }, 404);
+    const data = table === "clients" ? { name: row.name } : { client: row.client, name: row.name };
+    if (request.method === "GET") return json({ data, version: JSON.stringify(data) });
+    if (!["PUT", "DELETE"].includes(request.method)) return json({ error: "Método não permitido." }, 405);
+    const input = await readBody(request);
+    if (input.version !== JSON.stringify(data)) return json({ error: "O cadastro mudou. Atualize a consulta." }, 409);
+    const usage = table === "clients" ? "json_extract(payload, '$.client') = ?" : "json_extract(payload, '$.client') = ? AND json_extract(payload, '$.project') = ?";
+    const usageKeys = table === "clients" ? [owner, name] : [owner, client, name];
+    if (request.method === "DELETE") {
+      const expenses = await env.DB.prepare(`SELECT id FROM expenses WHERE owner = ? AND ${usage} LIMIT 1`).bind(...usageKeys).first();
+      const projects = table === "clients" && await env.DB.prepare("SELECT name FROM projects WHERE owner = ? AND client = ? LIMIT 1").bind(owner, name).first();
+      if (expenses || projects) return json({ error: "Cadastro em uso. Altere os vínculos das despesas e exclua os projetos vinculados antes de excluir o cliente. Você pode corrigir o nome usando Editar." }, 409);
+      const extra = table === "clients" ? " AND NOT EXISTS (SELECT 1 FROM projects WHERE owner = ? AND client = ?)" : "";
+      const result = await env.DB.prepare(`DELETE FROM ${table} WHERE ${where} AND NOT EXISTS (SELECT 1 FROM expenses WHERE owner = ? AND ${usage})${extra}`).bind(...keys, ...usageKeys, ...(table === "clients" ? [owner, name] : [])).run();
+      if ((result.meta?.changes ?? result.changes) !== 1) return json({ error: "Cadastro alterado ou em uso. Atualize a consulta." }, 409);
+      return json({ ok: true });
+    }
+    const next = input.data?.name;
+    if (typeof next !== "string" || !next.trim() || next.trim().length > 200) invalid("Informe um nome de até 200 caracteres.");
+    const newName = next.trim();
+    if (newName === name) return json({ data, version: JSON.stringify(data) });
+    const destination = table === "clients" ? [owner, newName] : [owner, client, newName];
+    if (await env.DB.prepare(`SELECT name FROM ${table} WHERE ${where}`).bind(...destination).first()) return json({ error: "Já existe um cadastro com esse nome." }, 409);
+    const statements = [env.DB.prepare(`UPDATE ${table} SET name = ? WHERE ${where}`).bind(newName, ...keys)];
+    if (table === "clients") {
+      statements.push(env.DB.prepare("UPDATE projects SET client = ? WHERE owner = ? AND client = ?").bind(newName, owner, name));
+      statements.push(env.DB.prepare("UPDATE expenses SET payload = json_set(payload, '$.client', ?) WHERE owner = ? AND json_extract(payload, '$.client') = ?").bind(newName, owner, name));
+      statements.push(env.DB.prepare("UPDATE reports SET payload = json_set(payload, '$.client', ?, '$.company', ?) WHERE owner = ? AND json_extract(payload, '$.client') = ?").bind(newName, newName, owner, name));
+    } else statements.push(env.DB.prepare("UPDATE expenses SET payload = json_set(payload, '$.project', ?) WHERE owner = ? AND json_extract(payload, '$.client') = ? AND json_extract(payload, '$.project') = ?").bind(newName, owner, client, name));
+    await env.DB.batch(statements);
+    const updated = { ...data, name: newName };
+    return json({ data: updated, version: JSON.stringify(updated) });
+  }
   if (path === "/api/admin/query" && request.method === "POST") {
     const input = await readBody(request);
     const compiled = compileQuery(input?.sql, owner);

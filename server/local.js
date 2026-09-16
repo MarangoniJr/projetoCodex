@@ -6,6 +6,11 @@ import { handleApi } from "./api.js";
 
 export function sqliteBinding(database) {
   return {
+    async batch(statements) {
+      database.exec("BEGIN");
+      try { const results = []; for (const statement of statements) results.push(await statement.run()); database.exec("COMMIT"); return results; }
+      catch (error) { database.exec("ROLLBACK"); throw error; }
+    },
     prepare(sql) {
       let args = [];
       return {

@@ -1,5 +1,7 @@
 const $ = selector => document.querySelector(selector);
 const examples = {
+  clients: "SELECT * FROM clients ORDER BY name;",
+  projects: "SELECT * FROM projects ORDER BY client;",
   expenses: "SELECT * FROM expenses ORDER BY date DESC LIMIT 100;",
   food: "SELECT id, date, category, amount, notes FROM expenses WHERE category = 'Alimentação' ORDER BY date DESC LIMIT 100;",
   car: "SELECT id, date, km, carExtra, notes FROM expenses WHERE type = 'car' ORDER BY date DESC LIMIT 100;",
@@ -10,6 +12,8 @@ let pendingData = null;
 let saving = false;
 let lastQuery = null;
 const fieldDefinitions = {
+  clients: [["name", "Nome do cliente", "text"]],
+  projects: [["name", "Nome do projeto", "text"]],
   expenses: [
     ["client", "Cliente", "text"], ["project", "Projeto / área", "text"],
     ["date", "Data", "date"], ["type", "Tipo", ["normal", "car"]],
@@ -52,13 +56,29 @@ async function query(sql) {
       const th = document.createElement("th"); th.textContent = "Ações"; th.scope = "col"; table.tHead.rows[0].append(th);
       result.rows.forEach((row, index) => {
         const button = document.createElement("button"); button.type = "button"; button.className = "edit-row"; button.textContent = "Editar";
-        button.addEventListener("click", async () => { button.disabled = true; await openEditor(result.table, row.id); button.disabled = false; });
-        table.tBodies[0].rows[index].insertCell().append(button);
+        button.addEventListener("click", async () => { button.disabled = true; await openEditor(result.table, row.id, row); button.disabled = false; });
+        const actions = table.tBodies[0].rows[index].insertCell();
+        actions.append(button);
+        if (["clients", "projects"].includes(result.table)) {
+          const remove = document.createElement("button"); remove.type = "button"; remove.className = "text-button"; remove.textContent = "Excluir";
+          remove.addEventListener("click", async () => {
+            if (!confirm(`Excluir ${row.name}${row.client ? ` do cliente ${row.client}` : ""}? Cadastros vinculados a despesas ou projetos não poderão ser excluídos.`)) return;
+            remove.disabled = true;
+            try {
+              const path = catalogPath(result.table, row);
+              const record = await api(path);
+              await api(path, { method: "DELETE", body: JSON.stringify({ version: record.version }) });
+              await query(lastQuery); status("Cadastro excluído.");
+            } catch (error) { status(error.message, true); }
+            finally { remove.disabled = false; }
+          });
+          actions.append(remove);
+        }
       });
     }
     $("#resultTable").replaceChildren(table);
     $("#resultCount").textContent = result.rows.length ? `${result.rows.length} registro(s)${result.hasMore ? "; há mais resultados. Refine o WHERE ou aumente o LIMIT." : "."}` : "Nenhum registro encontrado.";
-    status(canEdit ? "Consulta concluída. Use Editar para alterar um registro." : "Consulta concluída. Inclua a coluna id para editar despesas.");
+    status(canEdit ? "Consulta concluída. Use as ações ao lado do registro." : "Para editar, inclua id nas despesas, name nos clientes e client + name nos projetos, sem renomear essas colunas.");
   } catch (error) { status(error.message, true); }
   finally { $("#runQuery").disabled = false; }
 }
@@ -73,14 +93,22 @@ function toggleFields() {
     input.disabled = !visible; input.parentElement.hidden = !visible;
   }
 }
-async function openEditor(table, id) {
+function catalogPath(table, row) {
+  return `/api/admin/catalog/${table}?${new URLSearchParams({ name: row.name, ...(table === "projects" ? { client: row.client } : {}) })}`;
+}
+async function openEditor(table, id, row) {
   try {
-    const path = `/api/admin/records/${table}${table === "expenses" ? `/${encodeURIComponent(id)}` : ""}`;
+    const catalog = ["clients", "projects"].includes(table);
+    const path = catalog ? catalogPath(table, row) : `/api/admin/records/${table}${table === "expenses" ? `/${encodeURIComponent(id)}` : ""}`;
     const record = await api(path);
     editing = { ...record, table, path }; pendingData = null;
     $("#editTitle").textContent = table === "expenses" ? "Editar despesa" : "Editar dados do relatório";
     $("#editStatus").textContent = table === "expenses" ? `Registro ${id}. O comprovante será mantido.` : "A taxa de quilometragem é usada nos cálculos de todos os meses.";
     $("#editStatus").classList.remove("error");
+    if (catalog) {
+      $("#editTitle").textContent = table === "clients" ? "Editar cliente" : "Editar projeto";
+      $("#editStatus").textContent = `${row.client ? `Cliente: ${row.client}. ` : ""}A correção do nome também será aplicada às despesas e projetos vinculados.`;
+    }
     $("#editFields").replaceChildren();
     for (const [key, labelText, type] of fieldDefinitions[table]) {
       const label = document.createElement("label"); label.textContent = labelText;
@@ -93,6 +121,7 @@ async function openEditor(table, id) {
       if (type === "number") { input.min = "0"; input.max = "10000000"; input.step = "0.01"; input.inputMode = "decimal"; }
       if (type === "text" || type === "textarea") input.maxLength = key === "notes" ? 3000 : 500;
       input.required = ["date", "type", "category", "amount", "km", "carExtra", "reportMonth", "kmRate"].includes(key);
+      if (catalog) { input.required = true; input.maxLength = 200; }
       input.value = record.data[key] ?? "";
       label.append(input); $("#editFields").append(label);
     }
