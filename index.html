@@ -1,6 +1,6 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
-  <head>
+  <head><link rel="icon" type="image/svg+xml" href="/icon.svg?v=risti-1">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
@@ -169,11 +169,7 @@
         </div>
       </section>
       <section class="expenses" id="expensesList" aria-live="polite"></section>
-<details class="migration-tools"><summary>Importação de dados antigos</summary>      <div class="migration-actions">
-        <button id="backupLocal" class="text-button" type="button" hidden>Baixar dados antigos deste navegador</button>
-        <label class="import-label">Importar dados antigos <input id="importLocal" type="file" accept="application/json,.json" /></label>
-      </div></details>
-    </main>
+</main>
 
     <dialog id="profileDialog" aria-labelledby="profileTitle">
       <form id="profileForm"><h2 id="profileTitle">Complete seu cadastro</h2><p>Informe seu nome e sobrenome. Eles serão usados nos seus relatórios.</p><label>Nome<input name="firstName" autocomplete="given-name" maxlength="100" required></label><label>Sobrenome<input name="lastName" autocomplete="family-name" maxlength="100" required></label><p id="profileStatus" role="status"></p><button class="primary-button" type="submit">Salvar nome</button></form>
@@ -225,6 +221,7 @@
       </article>
     </template>
 
+    <script src="risti-template.js"></script>
     <script src="export.js"></script>
     <script src="app.js"></script>
   </body>

@@ -1,4 +1,4 @@
-const storageKey = "reembolso-viagem-expenses-v2";
+﻿const storageKey = "reembolso-viagem-expenses-v2";
 const reportKey = "reembolso-viagem-report-v2";
 const normalCategories = ["Transporte", "Outros", "Hotel", "Taxi", "Refeição", "Estacionamento", "Pedágio"];
 
@@ -57,7 +57,6 @@ async function api(path, options = {}) {
 async function initialize() {
   saveButton.disabled = true;
   reportForm.querySelectorAll("input, select").forEach(field => { field.disabled = true; });
-  document.querySelector("#backupLocal").hidden = !loadJson(storageKey, []).length;
   try {
     if (location.protocol === "file:") throw new Error("Abra o endereço online para cadastrar despesas. Você pode baixar os dados antigos abaixo e importá-los no site.");
     const state = await api("/api/state");
@@ -604,8 +603,8 @@ exportButton.addEventListener("click", async () => {
 
   const files = {};
   const month = rows[0].date.slice(0, 7);
-  const spreadsheetName = `Reembolso ${monthLabel(month)}.xlsx`;
-  files[spreadsheetName] = await buildRistiWorkbook(rows, report, document.querySelector("#weekFilter").value || monthLabel(month));
+  const workbooks = await buildRistiWorkbooks(rows, report, document.querySelector("#weekFilter").value || monthLabel(month));
+  for (const workbook of workbooks) files[workbook.name] = workbook.bytes;
 
   for (const [index, expense] of rows.entries()) {
     if (!expense.receiptUrl && !expense.receiptData) continue;
@@ -623,29 +622,6 @@ exportButton.addEventListener("click", async () => {
   downloadBlob(zip, `reembolso-${month}.zip`, "application/zip");
   } catch (error) { showStatus(error.message, true); }
   finally { exportButton.disabled = false; }
-});
-
-document.querySelector("#backupLocal").addEventListener("click", () => {
-  downloadBlob(JSON.stringify({ report: loadJson(reportKey, {}), expenses: loadJson(storageKey, []) }), "despesas-antigas.json", "application/json");
-});
-document.querySelector("#importLocal").addEventListener("change", async (event) => {
-  const file = event.target.files[0];
-  if (!file || !ready) return;
-  event.target.disabled = true;
-  try {
-    if (file.size > 40 * 1024 * 1024) throw new Error("O arquivo de importação deve ter até 40 MB.");
-    const data = JSON.parse(await file.text());
-    if (!Array.isArray(data.expenses)) throw new Error("Arquivo de despesas inválido.");
-    let count = 0;
-    for (const expense of data.expenses) {
-      const result = await api("/api/expenses", { method: "POST", body: JSON.stringify(expense) });
-      expenses = [...expenses.filter(row => row.id !== result.expense.id), result.expense];
-      count += 1;
-      showStatus(`Importando despesas: ${count} de ${data.expenses.length}...`);
-    }
-    showStatus(`${count} despesas importadas. Você pode repetir a importação sem duplicar os cadastros.`);
-  } catch (error) { showStatus(error.message, true); }
-  finally { event.target.disabled = false; event.target.value = ""; renderExpenses(); }
 });
 
 function formatMoneyCell(value) {

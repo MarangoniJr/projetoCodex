@@ -11,10 +11,12 @@ import adminScript from "./admin.js?raw";
 import adminStyles from "./admin.css?raw";
 
 import exportScript from "./export.js?raw";
+import ristiTemplate from "./risti-template.js?raw";
 import logo from "./logo.svg?raw";
 
 const assets = {
   "/export.js": [exportScript, "text/javascript"],
+  "/risti-template.js": [ristiTemplate, "text/javascript"],
   "/logo.svg": [logo, "image/svg+xml"],
   "/admin": [adminPage, "text/html"],
   "/admin.html": [adminPage, "text/html"],

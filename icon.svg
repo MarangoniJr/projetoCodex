@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#126855"/>
-  <path d="M35 38h58a8 8 0 0 1 8 8v44a8 8 0 0 1-8 8H35a8 8 0 0 1-8-8V46a8 8 0 0 1 8-8Z" fill="#fff"/>
-  <path d="M43 54h42M43 68h32M43 82h20" stroke="#126855" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="88" cy="80" r="16" fill="#f2b84b"/>
-  <path d="M82 80h12M88 74v12" stroke="#17211e" stroke-width="5" stroke-linecap="round"/>
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <title>RISTI</title>
+  <defs><linearGradient id="brand"><stop stop-color="#1373ad"/><stop offset="1" stop-color="#20a8da"/></linearGradient></defs>
+  <g fill="url(#brand)" transform="translate(0 66)">
+    <path id="connection" d="M100 0a31 31 0 1 0 24 51q26-34 52 0a31 31 0 1 0 0-40q-26 34-52 0A31 31 0 0 0 100 0Z" transform="translate(0 1)"/>
+    <use href="#connection" transform="translate(-52 53)"/>
+    <use href="#connection" transform="translate(0 105)"/>
+    <circle cx="253" cy="84" r="31"/>
+  </g>
 </svg>

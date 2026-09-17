@@ -29,7 +29,7 @@ export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data
   initAuth(storage.database);
   const env = { ...storage, ADMIN_EMAIL: adminEmail };
   const assets = new Map();
-  for (const file of ['index.html', 'app.js', 'export.js', 'logo.svg', 'styles.css', 'admin.html', 'admin.js', 'admin.css', 'icon.svg', 'manifest.webmanifest', 'service-worker.js', 'login.html', 'login.js', 'login.css', 'vps-client.js']) {
+  for (const file of ['index.html', 'app.js', 'export.js', 'risti-template.js', 'logo.svg', 'styles.css', 'admin.html', 'admin.js', 'admin.css', 'icon.svg', 'manifest.webmanifest', 'service-worker.js', 'login.html', 'login.js', 'login.css', 'vps-client.js']) {
     let body = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
     if (file === 'index.html' || file === 'admin.html') body = body.replace('</body>', '<script src="/vps-client.js" defer></script></body>');
     assets.set('/' + file, body);

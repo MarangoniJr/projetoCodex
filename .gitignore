@@ -11,3 +11,4 @@ dist/
 .vps-data/
 .env.vps
 backups/
+.tmp/
