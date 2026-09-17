@@ -1,0 +1,30 @@
+﻿* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #061d2a; }
+button, input { font: inherit; }
+.login-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 40px 24px; background: radial-gradient(ellipse at 50% 0%, #30a7d5 0%, transparent 42%), radial-gradient(ellipse at 15% 100%, #1173b1 0%, transparent 60%), linear-gradient(180deg, #edf2f8 0%, #76c2d4 42%, #2c80ac 100%); }
+.login-card { width: min(300px, 100%); }
+.brand-logo { display: block; width: 100%; height: auto; margin: 0 auto 28px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#formTitle:not(.visually-hidden) { font-size: 1.25rem; margin: 0 0 20px; text-align: center; }
+#loginForm { display: grid; gap: 16px; }
+.field { display: grid; gap: 8px; }
+label { font-size: 1rem; }
+input { width: 100%; min-width: 0; height: 40px; border: 1px solid transparent; border-radius: 4px; background: white; padding: 0 12px; font-size: .875rem; color: #19394c; }
+input::placeholder { color: #73808b; opacity: 1; }
+.password-field { position: relative; }
+.password-field input { padding-right: 44px; }
+button { cursor: pointer; }
+.primary-button { width: 100%; min-height: 40px; border: 0; border-radius: 4px; background: #176fad; color: white; padding: 10px 12px; font-size: .875rem; }
+.primary-button:hover { background: #105e97; }
+.show-password { position: absolute; right: 0; top: 0; width: 40px; height: 40px; display: grid; place-items: center; padding: 10px; border: 0; background: transparent; color: #176fad; }
+.show-password svg { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.account-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.account-actions button { border: 0; padding: 8px 0; background: transparent; color: #07334f; text-decoration: underline; text-underline-offset: 3px; font-size: .875rem; min-height: 40px; }
+button:disabled { opacity: .6; cursor: wait; }
+:focus-visible { outline: 3px solid #063e69; outline-offset: 3px; }
+#loginStatus { margin: 0; padding: 10px 12px; background: #fff3f2; color: #9b1c16; border-radius: 4px; font-size: .875rem; line-height: 1.5; }
+dialog { width: min(380px, calc(100% - 32px)); border: 0; border-radius: 10px; padding: 28px; color: #19394c; box-shadow: 0 20px 70px #063e6940; }
+dialog::backdrop { background: #082c5070; }
+dialog h2 { margin: 0 0 16px; font-size: 1.3rem; }
+dialog p { line-height: 1.5; }
+@media (max-height: 740px) { .brand-logo { width: 220px; margin-bottom: 24px; } .login-page { padding-block: 28px; } }

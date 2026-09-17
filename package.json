@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node server/vps.js",
+    "user:create": "node server/users.js create",
+    "user:password": "node server/users.js password",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "db:generate": "drizzle-kit generate",

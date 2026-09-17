@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_ORIGIN: https://${APP_DOMAIN:?Configure APP_DOMAIN no .env.vps}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    volumes:
+      - app_data:/data
+    expose:
+      - "3000"
+    ports:
+      - "127.0.0.1:${APP_PORT:-3087}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  app_data:

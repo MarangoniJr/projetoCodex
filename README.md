@@ -2,6 +2,14 @@
 
 Aplicativo de despesas de viagem por usuário, cliente e projeto, com banco SQLite e fotos vinculadas aos cadastros.
 
+## Versão independente para VPS Ubuntu
+
+Login e cadastro por e-mail e senha, SQLite inicialmente vazio e comprovantes persistentes. Docker publica em uma porta local configurável para o proxy existente. Veja [DEPLOY-HOSTINGER.md](DEPLOY-HOSTINGER.md) para instalação, domínio, HTTPS e backup.
+
+Para testar esta versão com Node 24: `npm start` e abra `http://localhost:3000`. Os dados ficam em `.vps-data`, separados do desenvolvimento Sites. Para redefinir uma senha: `npm run user:password -- pessoa@dominio.com`.
+
+As seções abaixo descrevem a versão original no GPT Sites, preservada no projeto.
+
 ## Contas, clientes e projetos
 
 O link pode ser compartilhado. Cada pessoa usa **Entrar com ChatGPT** com sua própria conta; despesas, comprovantes e dados do relatório ficam separados pelo identificador autenticado no servidor. **Sair / trocar de conta** permite alternar o acesso. O ambiente local continua usando uma única identidade simulada.
