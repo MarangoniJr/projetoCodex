@@ -472,3 +472,14 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
   .controls-panel .toolbar { flex-direction: column; }
   .controls-panel .toolbar button { width: 100%; }
 }
+
+.account-menu { position: relative; font-size: .9rem; }
+.account-menu summary { cursor: pointer; list-style: none; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--brand-dark); overflow-wrap: anywhere; }
+.account-menu summary::after { content: ' ▾'; }
+.account-dropdown { position: absolute; right: 0; top: calc(100% + 8px); min-width: 180px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; box-shadow: var(--shadow); z-index: 10; }
+.account-dropdown a { display: block; padding: 10px; color: var(--brand-dark); text-decoration: none; }
+.account-dropdown a[hidden] { display: none; }
+input[readonly] { background: #eef2f4; color: #41535c; cursor: default; }
+#profileForm { max-width: 380px; }
+.connection-status[hidden] { display: none; }
+@media (max-width: 600px) { .app-header { flex-wrap: wrap; } .header-actions { margin-left: auto; max-width: 100%; } }

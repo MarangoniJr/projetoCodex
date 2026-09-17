@@ -10,7 +10,12 @@ import adminPage from "./admin.html?raw";
 import adminScript from "./admin.js?raw";
 import adminStyles from "./admin.css?raw";
 
+import exportScript from "./export.js?raw";
+import logo from "./logo.svg?raw";
+
 const assets = {
+  "/export.js": [exportScript, "text/javascript"],
+  "/logo.svg": [logo, "image/svg+xml"],
   "/admin": [adminPage, "text/html"],
   "/admin.html": [adminPage, "text/html"],
   "/admin.js": [adminScript, "text/javascript"],

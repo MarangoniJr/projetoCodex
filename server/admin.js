@@ -166,7 +166,7 @@ export async function handleAdmin(request, env, owner, { readBody, expenseData, 
   const original = JSON.parse(row.payload);
   let updated;
   if (table === "expenses") {
-    updated = expenseData({ ...input.data, id, receiptName: original.receiptName });
+    updated = expenseData({ ...input.data, kmRate: original.kmRate, id, receiptName: original.receiptName });
     updated.createdAt = original.createdAt;
   } else updated = reportData(input.data);
   const statement = table === "expenses" ? "UPDATE expenses SET date = ?, payload = ? WHERE owner = ? AND id = ? AND payload = ?" : "UPDATE reports SET payload = ? WHERE owner = ? AND payload = ?";

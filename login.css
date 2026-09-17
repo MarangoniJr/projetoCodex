@@ -30,3 +30,4 @@ dialog::backdrop { background: #082c5070; }
 dialog h2 { margin: 0 0 16px; font-size: 1.3rem; }
 dialog p { line-height: 1.5; }
 @media (max-height: 740px) { .brand-logo { width: 220px; margin-bottom: 24px; } .login-page { padding-block: 28px; } }
+#registrationNames:not([hidden]) { display: grid; gap: 16px; }

@@ -36,17 +36,11 @@ test("week spans months and client/project filters select the matching costs", (
   assert.equal(evaluate("getFilteredExpenses()[0].id"), "old");
 });
 
-test("export contains only filtered rows and project totals without fixed personal branding", () => {
-  const { node, evaluate } = app();
-  node("#weekFilter").value = "2026-W40";
-  node("#clientFilter").value = "QQ";
-  node("#projectFilter").value = "Manutenção";
-  const output = evaluate("buildSpreadsheet(getFilteredExpenses(), '2026-09')");
-  assert.match(output, /2026-W40/);
-  assert.match(output, /TOTAIS POR CLIENTE E PROJETO/);
-  assert.match(output, /Manutenção/);
-  assert.match(output, /40\.00/);
-  assert.doesNotMatch(output, /Suprimentos|RUIZ|financeiro@risti|Paulo César/);
+test('stored mileage rate is independent of the report default', () => {
+  const { evaluate } = app();
+  assert.equal(evaluate('getExpenseTotal({type: "car", km: 100, kmRate: 1.15, carExtra: 5})'), 120);
+  evaluate('report.kmRate = 9');
+  assert.equal(evaluate('getExpenseTotal({type: "car", km: 100, kmRate: 1.15, carExtra: 5})'), 120);
 });
 
 test("ISO week includes dates from the previous calendar year", () => {

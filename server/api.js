@@ -30,6 +30,7 @@ function expenseData(input) {
     from: input.type === "car" ? text(input.from || "") : "",
     to: input.type === "car" ? text(input.to || "") : "",
     km: input.type === "car" ? number(input.km) : 0,
+    ...(input.type === "car" && input.kmRate != null ? { kmRate: number(input.kmRate) } : {}),
     carExtra: input.type === "car" ? number(input.carExtra) : 0,
     notes: text(input.notes || "", 3000), receiptName: text(input.receiptName || "", 255),
     createdAt: new Date().toISOString(),
@@ -81,7 +82,10 @@ export async function handleApi(request, env) {
         db(env).prepare("SELECT name FROM clients WHERE owner = ? ORDER BY name").bind(owner).all(),
         db(env).prepare("SELECT client, name FROM projects WHERE owner = ? ORDER BY name").bind(owner).all(),
       ]);
-      return json({ clients: clients.results, projects: projects.results, expenses: rows.results.map(rowData), report: report ? JSON.parse(report.payload) : {}, user: { email: request.headers.get("oai-authenticated-user-email") || "" }, isAdmin: isAdmin(request, env) });
+      const user = env.CURRENT_USER || { email: request.headers.get("oai-authenticated-user-email") || "" };
+      const savedReport = report ? JSON.parse(report.payload) : {};
+      if (user.firstName && user.lastName) savedReport.consultant = `${user.firstName} ${user.lastName}`;
+      return json({ clients: clients.results, projects: projects.results, expenses: rows.results.map(rowData), report: savedReport, user, isAdmin: isAdmin(request, env) });
     }
     if (url.pathname === "/api/clients" && method === "POST") {
       const input = await readBody(request), name = text(input.name, 200);
@@ -98,6 +102,7 @@ export async function handleApi(request, env) {
     }
     if (url.pathname === "/api/report" && method === "PUT") {
       const report = reportData(await readBody(request));
+      if (env.CURRENT_USER) report.consultant = [env.CURRENT_USER.firstName, env.CURRENT_USER.lastName].filter(Boolean).join(' ');
       await db(env).prepare("INSERT INTO reports (owner, payload) VALUES (?, ?) ON CONFLICT(owner) DO UPDATE SET payload = excluded.payload").bind(owner, JSON.stringify(report)).run();
       return json({ report });
     }

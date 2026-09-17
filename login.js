@@ -10,6 +10,8 @@ function setStatus(message = '') {
 }
 toggle.addEventListener('click', () => {
   register = !register;
+  document.querySelector("#registrationNames").hidden = !register;
+  for (const name of ["firstName", "lastName"]) { form.elements[name].disabled = !register; form.elements[name].required = register; }
   const title = document.querySelector('#formTitle');
   title.textContent = register ? 'Criar sua conta' : 'Entrar na sua conta';
   title.classList.toggle('visually-hidden', !register);
@@ -37,7 +39,7 @@ form.addEventListener('submit', async event => {
   button.textContent = register ? 'Criando conta…' : 'Entrando…';
   setStatus();
   try {
-    const response = await fetch(register ? '/auth/register' : '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: form.elements.email.value, password: form.elements.password.value }) });
+    const response = await fetch(register ? '/auth/register' : '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: form.elements.email.value, password: form.elements.password.value, ...(register ? { firstName: form.elements.firstName.value, lastName: form.elements.lastName.value } : {}) }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error === 'Origem não autorizada.' ? 'O endereço de acesso não corresponde à configuração do servidor. Solicite ao administrador a correção do domínio de acesso.' : data.error || 'Não foi possível entrar.');
     location.replace('/');

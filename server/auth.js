@@ -8,6 +8,15 @@ export function initAuth(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);`);
+  const columns = db.prepare('PRAGMA table_info(users)').all().map(column => column.name);
+  for (const column of ['first_name', 'last_name']) {
+    if (!columns.includes(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+  }
+}
+function profileNames(input) {
+  const values = [input?.firstName, input?.lastName];
+  if (values.some(value => typeof value !== 'string' || !value.trim() || value.trim().length > 100 || /[\x00-\x1f]/.test(value))) throw new Error('Informe nome e sobrenome (até 100 caracteres cada).');
+  return values.map(value => value.trim());
 }
 export async function setPassword(db, email, password, create = false) {
   email = email.trim().toLowerCase();
@@ -18,7 +27,7 @@ export async function setPassword(db, email, password, create = false) {
   const user = db.prepare('SELECT id FROM users WHERE email=?').get(email);
   if (create && user) throw new Error('Conta já cadastrada. Use password para alterar a senha.');
   if (!create && !user) throw new Error('Conta não encontrada.');
-  if (create) db.prepare('INSERT INTO users VALUES (?,?,?)').run(randomUUID(), email, hash);
+  if (create) db.prepare('INSERT INTO users (id,email,password) VALUES (?,?,?)').run(randomUUID(), email, hash);
   else {
     db.prepare('UPDATE users SET password=? WHERE id=?').run(hash, user.id);
     db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
@@ -32,12 +41,23 @@ export function authService(db, origin, adminEmail = '') {
   const response = (data, status = 200, headers = {}) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
   return {
     user(request) {
-      return db.prepare('SELECT users.id, users.email FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(digest(token(request)), Date.now());
+      return db.prepare('SELECT users.id, users.email, users.first_name AS firstName, users.last_name AS lastName FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(digest(token(request)), Date.now());
     },
     async handle(request) {
       const path = new URL(request.url).pathname;
       if (request.method !== 'POST') return response({ error: 'Método não permitido.' }, 405);
       if (request.headers.get('origin') !== origin || request.headers.get('sec-fetch-site') === 'cross-site') return response({ error: 'Origem não autorizada.' }, 403);
+      if (path === '/auth/profile') {
+        const user = this.user(request);
+        if (!user) return response({ error: 'Entre na sua conta.' }, 401);
+        if (user.firstName && user.lastName) return response({ error: 'O nome da conta já foi cadastrado.' }, 409);
+        try {
+          const [firstName, lastName] = profileNames(await request.json());
+          const changed = db.prepare("UPDATE users SET first_name=?, last_name=? WHERE id=? AND (first_name='' OR last_name='')").run(firstName, lastName, user.id);
+          if (!changed.changes) return response({ error: 'O nome da conta já foi cadastrado.' }, 409);
+          return response({ ok: true });
+        } catch (error) { return response({ error: error.message }, 400); }
+      }
       if (path === '/auth/logout') {
         db.prepare('DELETE FROM sessions WHERE token=?').run(digest(token(request)));
         return response({ ok: true }, 200, { 'Set-Cookie': cookie('', 0) });
@@ -56,7 +76,11 @@ export function authService(db, origin, adminEmail = '') {
       const email = input.email.trim().toLowerCase();
       if (path === '/auth/register') {
         if (email === adminEmail.trim().toLowerCase()) return response({ error: 'Este e-mail está reservado. Solicite acesso ao administrador.' }, 400);
-        try { await setPassword(db, email, input.password, true); }
+        try {
+          const [firstName, lastName] = profileNames(input);
+          await setPassword(db, email, input.password, true);
+          db.prepare('UPDATE users SET first_name=?, last_name=? WHERE email=?').run(firstName, lastName, email);
+        }
         catch (error) { return response({ error: error.code?.startsWith('ERR_SQLITE') ? 'Não foi possível cadastrar esta conta.' : error.message }, 400); }
       }
       const accountKey = digest(email);

@@ -199,3 +199,13 @@ docker compose --env-file .env.vps -p reembolso-vps up -d --build app
 ```
 
 Esse comando mantém o volume de contas e despesas existente.
+
+## Atualização: perfil, despesas e modelo Excel RISTI
+
+O cadastro agora exige nome e sobrenome. Contas existentes completam esses campos uma única vez no próximo acesso. O nome do relatório é preenchido pela conta e não pode ser alterado pelo formulário.
+
+Dados do relatório contém apenas nome e mês. Cliente, projeto e taxa de quilometragem ficam em Nova despesa. Cada novo lançamento de carro conserva sua taxa; despesas antigas sem taxa individual mantêm a taxa histórica do relatório.
+
+A exportação gera um ZIP com uma planilha XLSX e os comprovantes. O Excel contém Reembolso (modelo com logo, despesas, quilometragem, resumo e aprovações), Km_Detalhado (taxas por lançamento) e Lançamentos (cliente, projeto e observações). Os filtros de fechamento também são aplicados ao arquivo exportado.
+
+O pacote inclui export.js e logo.svg. Use todos os arquivos do pacote ao atualizar a aplicação. As colunas de nome são acrescentadas automaticamente ao banco existente, preservando contas, sessões e despesas.

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="266" viewBox="0 0 300 266" role="img" aria-label="RISTI">
+    <defs><linearGradient id="brand"><stop stop-color="#1373ad"/><stop offset="1" stop-color="#20a8da"/></linearGradient></defs>
+    <g fill="url(#brand)">
+      <path id="connection" d="M100 0a31 31 0 1 0 24 51q26-34 52 0a31 31 0 1 0 0-40q-26 34-52 0A31 31 0 0 0 100 0Z" transform="translate(0 1)"/>
+      <use href="#connection" transform="translate(-52 53)"/>
+      <use href="#connection" transform="translate(0 105)"/>
+      <circle cx="253" cy="84" r="31"/>
+    </g>
+    <g fill="#1674ad">
+      <path d="M0 183h62q21 0 21 25v2q0 18-17 23l29 33H73l-49-50h32q10 0 10-9t-10-8H17v67H0Z"/>
+      <path d="M90 183h17v83H90Z M188 183h-51q-30 0-30 25t30 25h27q10 0 10 8t-10 8h-54v17h54q26 0 26-25t-26-25h-27q-12 0-12-8t12-8h51Z"/>
+    </g>
+    <path fill="#20a8da" d="M196 183h82v17h-32v66h-18v-66h-32Z M284 183h16v83h-16Z"/>
+  </svg>

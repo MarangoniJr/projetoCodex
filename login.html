@@ -19,6 +19,7 @@
   <h1 class="product-title">Reembolso <span>RISTI</span></h1>
   <h2 id="formTitle" class="visually-hidden">Entrar na sua conta</h2>
   <form id="loginForm">
+    <div id="registrationNames" hidden><div class="field"><label for="firstName">Nome</label><input id="firstName" name="firstName" autocomplete="given-name" maxlength="100" disabled></div><div class="field"><label for="lastName">Sobrenome</label><input id="lastName" name="lastName" autocomplete="family-name" maxlength="100" disabled></div></div>
     <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" placeholder="Ex: nome@risti.com.br" autocomplete="username" maxlength="254" required autofocus></div>
     <div class="field"><label for="password">Senha</label><div class="password-field"><input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" maxlength="256" required><button id="showPassword" class="show-password" type="button" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <p id="loginStatus" role="status" aria-live="polite" hidden></p>

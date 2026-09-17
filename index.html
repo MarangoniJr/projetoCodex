@@ -17,21 +17,12 @@
         <p class="eyebrow">Fechamento mensal</p>
         <h1>Reembolso de Despesas</h1>
       </div>
-      <div class="header-actions"><a id="adminLink" href="/admin" hidden>Consultar e editar dados</a><button class="icon-button" id="installButton" type="button" hidden title="Instalar app">+</button></div>
+      <div class="header-actions"><details class="account-menu"><summary id="accountName">Minha conta</summary><div class="account-dropdown"><a id="signIn" href="/signin-with-chatgpt?return_to=%2F" target="_top">Entrar</a><a id="signOut" href="/signout-with-chatgpt?return_to=%2F" target="_top" hidden>Sair do sistema</a></div></details><a id="adminLink" href="/admin" hidden>Consultar e editar dados</a><button class="icon-button" id="installButton" type="button" hidden title="Instalar app">+</button></div>
     </header>
 
     <main class="shell">
-      <section class="panel">
-        <strong id="accountName">Suas despesas, na sua conta</strong>
-        <p>Cada pessoa acessa somente seus clientes, projetos e comprovantes.</p>
-        <a id="signIn" href="/signin-with-chatgpt?return_to=%2F" target="_top">Entrar com ChatGPT</a>
-        <a id="signOut" href="/signout-with-chatgpt?return_to=%2F" target="_top" hidden>Sair / trocar de conta</a>
-      </section>
       <p id="connectionStatus" class="connection-status" role="status">Carregando despesas...</p>
-      <div class="migration-actions">
-        <button id="backupLocal" class="text-button" type="button" hidden>Baixar dados antigos deste navegador</button>
-        <label class="import-label">Importar dados antigos <input id="importLocal" type="file" accept="application/json,.json" /></label>
-      </div>
+
       <section class="panel">
         <div class="section-title">
           <h2>Dados do relatório</h2>
@@ -46,26 +37,10 @@
             </label>
             <label>
               Seu nome
-              <input id="consultant" name="consultant" type="text" required />
+              <input id="consultant" name="consultant" type="text" readonly aria-readonly="true" required />
             </label>
           </div>
 
-          <div class="form-row">
-            <label>
-              Viagem de/para
-              <input id="route" name="route" type="text" placeholder="Ex.: Bebedouro / Frutal" />
-            </label>
-          </div>
-
-          <label>Cliente / Empresa / local
-            <span class="catalog-picker"><select id="client" name="client" required><option value="">Selecione um cliente</option></select><button id="addClient" type="button" class="add-catalog" aria-label="Cadastrar cliente" title="Cadastrar cliente">+</button></span>
-            <datalist id="clientOptions"></datalist>
-          </label>
-          <p class="field-hint" id="clientHint">Use + para cadastrar um cliente.</p>
-          <label class="car-fields" hidden>
-            Taxa de quilometragem
-            <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" />
-          </label>
         </form>
       </section>
 
@@ -76,9 +51,15 @@
         </div>
 
         <form id="expenseForm" autocomplete="off">
+          <label>Cliente / Empresa / local
+            <span class="catalog-picker"><select id="client" name="client" required><option value="" hidden></option></select><button id="addClient" type="button" class="add-catalog" aria-label="Cadastrar cliente" title="Cadastrar cliente">+</button></span>
+            <datalist id="clientOptions"></datalist>
+          </label>
+          <p class="field-hint" id="clientHint">Use + para cadastrar um cliente.</p>
+
           <div class="form-row">
             <label>Projeto / área
-              <span class="catalog-picker"><select id="project" name="project" required><option value="">Selecione um projeto</option></select><button id="addProject" type="button" class="add-catalog" aria-label="Cadastrar projeto" title="Cadastrar projeto">+</button></span>
+              <span class="catalog-picker"><select id="project" name="project" required><option value="" hidden></option></select><button id="addProject" type="button" class="add-catalog" aria-label="Cadastrar projeto" title="Cadastrar projeto">+</button></span>
             </label>
           </div>
           <p class="field-hint" id="projectHint">Selecione o cliente para ver seus projetos ou use + para cadastrar.</p>
@@ -132,6 +113,10 @@
             </label>
           </div>
 
+          <label class="car-fields" hidden>
+            Taxa de quilometragem (R$/km)
+            <input id="kmRate" name="kmRate" type="number" inputmode="decimal" min="0" step="0.01" value="1.15" required />
+          </label>
           <label>
             Observações
             <textarea id="notes" name="notes" rows="3" placeholder="Ex.: Almoço durante visita ao cliente"></textarea>
@@ -184,8 +169,15 @@
         </div>
       </section>
       <section class="expenses" id="expensesList" aria-live="polite"></section>
+<details class="migration-tools"><summary>Importação de dados antigos</summary>      <div class="migration-actions">
+        <button id="backupLocal" class="text-button" type="button" hidden>Baixar dados antigos deste navegador</button>
+        <label class="import-label">Importar dados antigos <input id="importLocal" type="file" accept="application/json,.json" /></label>
+      </div></details>
     </main>
 
+    <dialog id="profileDialog" aria-labelledby="profileTitle">
+      <form id="profileForm"><h2 id="profileTitle">Complete seu cadastro</h2><p>Informe seu nome e sobrenome. Eles serão usados nos seus relatórios.</p><label>Nome<input name="firstName" autocomplete="given-name" maxlength="100" required></label><label>Sobrenome<input name="lastName" autocomplete="family-name" maxlength="100" required></label><p id="profileStatus" role="status"></p><button class="primary-button" type="submit">Salvar nome</button></form>
+    </dialog>
     <dialog id="catalogDialog" aria-labelledby="catalogTitle">
       <form id="catalogForm">
         <h2 id="catalogTitle">Cadastrar cliente</h2>
@@ -233,6 +225,7 @@
       </article>
     </template>
 
+    <script src="export.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

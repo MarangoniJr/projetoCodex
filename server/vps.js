@@ -29,7 +29,7 @@ export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data
   initAuth(storage.database);
   const env = { ...storage, ADMIN_EMAIL: adminEmail };
   const assets = new Map();
-  for (const file of ['index.html', 'app.js', 'styles.css', 'admin.html', 'admin.js', 'admin.css', 'icon.svg', 'manifest.webmanifest', 'service-worker.js', 'login.html', 'login.js', 'login.css', 'vps-client.js']) {
+  for (const file of ['index.html', 'app.js', 'export.js', 'logo.svg', 'styles.css', 'admin.html', 'admin.js', 'admin.css', 'icon.svg', 'manifest.webmanifest', 'service-worker.js', 'login.html', 'login.js', 'login.css', 'vps-client.js']) {
     let body = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
     if (file === 'index.html' || file === 'admin.html') body = body.replace('</body>', '<script src="/vps-client.js" defer></script></body>');
     assets.set('/' + file, body);
@@ -68,7 +68,7 @@ export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data
           if (path.startsWith('/auth/')) response = await auth.handle(request);
           else {
             if (user) { request.headers.set('oai-authenticated-user-id', user.id); request.headers.set('oai-authenticated-user-email', user.email); }
-            if (path.startsWith('/api/')) response = await handleApi(request, env);
+            if (path.startsWith('/api/')) response = await handleApi(request, { ...env, CURRENT_USER: user });
             else if (path.startsWith('/admin') && !isAdmin(request, env)) response = new Response('Área exclusiva do administrador.', { status: 403 });
             else if (!['GET', 'HEAD'].includes(req.method)) response = new Response(null, { status: 405 });
             else if (path === '/login' && user) response = new Response(null, { status: 303, headers: { Location: '/' } });

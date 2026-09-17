@@ -40,6 +40,7 @@ initialize();
 
 function showStatus(message, error = false) {
   status.textContent = message;
+  status.hidden = !message;
   status.classList.toggle("error", error);
 }
 
@@ -68,13 +69,15 @@ async function initialize() {
     document.querySelector("#signOut").hidden = false;
     document.querySelector("#adminLink").hidden = !state.isAdmin;
     report = state.report;
+    if (state.user?.firstName !== undefined && (!state.user.firstName || !state.user.lastName)) document.querySelector("#profileDialog").showModal();
     refreshChoices();
     hydrateReport();
     ready = true;
+    refreshChoices();
     reportForm.querySelectorAll("input, select").forEach(field => { field.disabled = false; });
     saveButton.disabled = false;
     renderExpenses();
-    showStatus("Despesas carregadas. Os cadastros serão salvos na sua conta.");
+    showStatus("");
   } catch (error) { showStatus(error.message, true); }
 }
 
@@ -94,7 +97,7 @@ function hydrateReport() {
   };
 
   report = { ...defaults, ...report };
-  report.client = report.client ?? report.company ?? "";
+  document.querySelector("#kmRate").value = report.kmRate || "1.15";
 
   [...reportForm.elements].forEach((field) => {
     if (field.name && report[field.name] !== undefined) {
@@ -105,11 +108,13 @@ function hydrateReport() {
 
 function getReportData() {
   const data = new FormData(reportForm);
-  const values = {};
+  const values = { ...report };
   data.forEach((value, key) => {
     values[key] = String(value).trim();
   });
-  values.company = values.client || "";
+  delete values.client;
+  delete values.company;
+  delete values.route;
   return values;
 }
 
@@ -216,7 +221,9 @@ function projectChoices(input, target) {
 
 function catalogSelect(selector, values, placeholder) {
   const element = document.querySelector(selector), previous = element.value;
-  element.replaceChildren(new Option(placeholder, ""));
+  const blank = new Option("", "");
+  blank.hidden = true;
+  element.replaceChildren(blank);
   for (const value of [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"))) element.add(new Option(value, value));
   element.value = [...element.options].some(option => option.value === previous) ? previous : "";
 }
@@ -235,7 +242,7 @@ function refreshChoices() {
 
 function getExpenseTotal(expense) {
   if (expense.type === "car") {
-    return decimal(expense.km) * decimal(report.kmRate || 0) + decimal(expense.carExtra);
+    return Math.round((decimal(expense.km) * decimal(expense.kmRate ?? report.kmRate ?? 1.15) + decimal(expense.carExtra)) * 100) / 100;
   }
 
   return decimal(expense.amount);
@@ -514,6 +521,7 @@ form.addEventListener("submit", async (event) => {
     from: type === "car" ? String(data.get("from")).trim() : "",
     to: type === "car" ? String(data.get("to")).trim() : "",
     km: type === "car" ? decimal(data.get("km")) : 0,
+    ...(type === "car" ? { kmRate: decimal(data.get("kmRate")) } : {}),
     carExtra: type === "car" ? decimal(data.get("carExtra")) : 0,
     notes: String(data.get("notes")).trim(),
     receiptName: receipt?.name || "",
@@ -544,8 +552,6 @@ form.addEventListener("submit", async (event) => {
     document.querySelector("#weekFilter").value = "";
     renderExpenses();
     showStatus(receipt ? "Despesa e comprovante salvos. Selecione cliente e projeto para a próxima despesa." : "Despesa salva. Selecione cliente e projeto para a próxima despesa.");
-    try { await persistReport(); }
-    catch { showStatus("Despesa salva. Não foi possível salvar a limpeza do cliente no cabeçalho; ele poderá reaparecer ao recarregar.", true); }
   } catch (error) { showStatus(error.message, true); }
   finally {
     inputs.forEach((field, index) => { field.disabled = disabledStates[index]; });
@@ -598,8 +604,8 @@ exportButton.addEventListener("click", async () => {
 
   const files = {};
   const month = rows[0].date.slice(0, 7);
-  const spreadsheetName = `Reembolso ${monthLabel(month)}.xls`;
-  files[spreadsheetName] = new TextEncoder().encode(buildSpreadsheet(rows, month));
+  const spreadsheetName = `Reembolso ${monthLabel(month)}.xlsx`;
+  files[spreadsheetName] = await buildRistiWorkbook(rows, report, document.querySelector("#weekFilter").value || monthLabel(month));
 
   for (const [index, expense] of rows.entries()) {
     if (!expense.receiptUrl && !expense.receiptData) continue;
@@ -641,84 +647,6 @@ document.querySelector("#importLocal").addEventListener("change", async (event) 
   } catch (error) { showStatus(error.message, true); }
   finally { event.target.disabled = false; event.target.value = ""; renderExpenses(); }
 });
-
-function buildSpreadsheet(rows, month) {
-  const normalRows = rows.filter((expense) => expense.type === "normal");
-  const carRows = rows.filter((expense) => expense.type === "car");
-  const normalTotals = Object.fromEntries(normalCategories.map((category) => [category, 0]));
-  const kmRate = decimal(report.kmRate);
-  let carKmTotal = 0;
-  let carExtraTotal = 0;
-
-  normalRows.forEach((expense) => {
-    const category = expense.category === "Alimentação" ? "Refeição" : expense.category;
-    normalTotals[category] += decimal(expense.amount);
-  });
-
-  carRows.forEach((expense) => {
-    carKmTotal += decimal(expense.km) * kmRate;
-    carExtraTotal += decimal(expense.carExtra);
-  });
-
-  const expensesTotal = getMonthTotal(rows);
-
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <style>
-    body { font-family: Arial, sans-serif; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #222; padding: 6px; vertical-align: top; }
-    .title { font-size: 18px; font-weight: bold; text-align: center; background: #d9eAD3; }
-    .section { font-weight: bold; background: #d9eAD3; }
-    .label { font-weight: bold; }
-    .right { text-align: right; }
-    .center { text-align: center; }
-  </style>
-</head>
-<body>
-  <table>
-    <tr><td class="title" colspan="12">RELATÓRIO DE REEMBOLSO DE DESPESAS</td></tr>
-    <tr><td colspan="12">Mês de referência: ${escapeHtml(document.querySelector("#weekFilter").value || monthLabel(month))}</td></tr>
-    <tr><td class="label" colspan="2">Nome do Consultor:</td><td colspan="10">${escapeHtml(report.consultant)}</td></tr>
-    <tr><td class="label" colspan="2">Viagem De/Para:</td><td colspan="10">${escapeHtml(report.route)}</td></tr>
-    <tr><td class="label" colspan="2">Empresa/Local:</td><td colspan="10">${escapeHtml(report.company)}</td></tr>
-    <tr><td class="section" colspan="12">DESPESAS REALIZADAS</td></tr>
-    <tr><th>Data</th><th>Meio de transporte</th><th>De</th><th>Para</th><th>Valor</th><th>Outros</th><th>Hotel</th><th>Taxi</th><th>Alimentação</th><th>Estacion.</th><th>Pedágio</th><th>Obs.</th></tr>
-    ${normalRows
-      .map((expense) => {
-        const cells = {
-          Transporte: expense.category === "Transporte" ? expense.amount : "",
-          Outros: expense.category === "Outros" ? expense.amount : "",
-          Hotel: expense.category === "Hotel" ? expense.amount : "",
-          Taxi: expense.category === "Taxi" ? expense.amount : "",
-          Refeição: ["Alimentação", "Refeição"].includes(expense.category) ? expense.amount : "",
-          Estacionamento: expense.category === "Estacionamento" ? expense.amount : "",
-          Pedágio: expense.category === "Pedágio" ? expense.amount : "",
-        };
-        return `<tr><td>${formatDate(expense.date)}</td><td>${expense.category === "Transporte" ? "Transporte" : ""}</td><td></td><td></td><td class="right">${formatMoneyCell(cells.Transporte)}</td><td class="right">${formatMoneyCell(cells.Outros)}</td><td class="right">${formatMoneyCell(cells.Hotel)}</td><td class="right">${formatMoneyCell(cells.Taxi)}</td><td class="right">${formatMoneyCell(cells.Refeição)}</td><td class="right">${formatMoneyCell(cells.Estacionamento)}</td><td class="right">${formatMoneyCell(cells.Pedágio)}</td><td>${escapeHtml([expense.client || "Sem cliente", expense.project || "Sem projeto", expense.notes].filter(Boolean).join(" · "))}</td></tr>`;
-      })
-      .join("")}
-    <tr><td class="label" colspan="4">TOTAL R$</td><td class="right">${normalTotals.Transporte.toFixed(2)}</td><td class="right">${normalTotals.Outros.toFixed(2)}</td><td class="right">${normalTotals.Hotel.toFixed(2)}</td><td class="right">${normalTotals.Taxi.toFixed(2)}</td><td class="right">${normalTotals.Refeição.toFixed(2)}</td><td class="right">${normalTotals.Estacionamento.toFixed(2)}</td><td class="right">${normalTotals.Pedágio.toFixed(2)}</td><td></td></tr>
-    <tr><td class="section" colspan="12">DESPESAS CARRO PRÓPRIO</td></tr>
-    <tr><td class="label" colspan="2">Taxa de quilometragem:</td><td class="right">${kmRate.toFixed(2)}</td><td class="label">Total Km</td><td class="label">Estacionam./Pedágio</td><td class="label">Valor</td><td colspan="6"></td></tr>
-    <tr><th>Data</th><th>De</th><th>Para</th><th>Total Km</th><th>Estacionam./Pedágio</th><th>Valor</th><th colspan="6">Observação</th></tr>
-    ${carRows
-      .map(
-        (expense) =>
-          `<tr><td>${formatDate(expense.date)}</td><td>${escapeHtml(expense.from)}</td><td>${escapeHtml(expense.to)}</td><td class="right">${decimal(expense.km).toFixed(2)}</td><td class="right">${decimal(expense.carExtra).toFixed(2)}</td><td class="right">${getExpenseTotal(expense).toFixed(2)}</td><td colspan="6">${escapeHtml([expense.client || "Sem cliente", expense.project || "Sem projeto", expense.notes].filter(Boolean).join(" · "))}</td></tr>`
-      )
-      .join("")}
-    <tr><td colspan="3" class="label right">TOTAL R$</td><td class="right">${carKmTotal.toFixed(2)}</td><td class="right">${carExtraTotal.toFixed(2)}</td><td class="right">${(carKmTotal + carExtraTotal).toFixed(2)}</td><td colspan="6"></td></tr>
-    <tr><td class="section" colspan="12">RESUMO</td></tr>
-    <tr><td class="label" colspan="3">Total das Despesas(R$):</td><td class="right">${expensesTotal.toFixed(2)}</td><td colspan="8">Assinatura:</td></tr>
-    <tr><td class="section" colspan="12">TOTAIS POR CLIENTE E PROJETO</td></tr>
-    ${groupedTotals(rows).map(group => `<tr><td colspan="4">${escapeHtml(group.client)}</td><td colspan="4">${escapeHtml(group.project)}</td><td colspan="4">${group.total.toFixed(2)}</td></tr>`).join("")}
-  </table>
-</body>
-</html>`;
-}
 
 function formatMoneyCell(value) {
   return value === "" ? "" : decimal(value).toFixed(2);
@@ -833,3 +761,18 @@ installButton.addEventListener("click", async () => {
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("service-worker.js");
 }
+
+const profileDialog = document.querySelector('#profileDialog');
+profileDialog.addEventListener('cancel', event => event.preventDefault());
+document.querySelector('#profileForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const profileForm = event.currentTarget;
+  const button = profileForm.querySelector('button');
+  button.disabled = true;
+  try {
+    await api('/auth/profile', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(profileForm))) });
+    profileDialog.close();
+    await initialize();
+  } catch (error) { document.querySelector('#profileStatus').textContent = error.message; }
+  finally { button.disabled = false; }
+});

@@ -23,17 +23,17 @@ test('VPS: registration, sessions, isolation, authorization, persistence and log
     assert.equal((await call('/auth/register', { method: 'POST', body: { email: 'x@example.com', password }, headers: { Origin: 'https://evil.example' } })).status, 403);
     assert.equal((await call('/auth/register', { method: 'POST', body: { email: 'admin@example.com', password } })).status, 400);
     assert.equal((await call('/auth/register', { method: 'POST', body: { email: 'x@example.com', password: 'short' } })).status, 400);
-    const signup = await call('/auth/register', { method: 'POST', body: { email: 'a@example.com', password } });
+    const signup = await call('/auth/register', { method: 'POST', body: { email: 'a@example.com', password, firstName: 'Ana', lastName: 'Silva' } });
     assert.equal(signup.status, 200);
     const cookie = signup.headers.get('set-cookie').split(';')[0];
     assert.match(signup.headers.get('set-cookie'), /HttpOnly; SameSite=Lax; Max-Age=43200; Secure/);
     assert.notEqual(instance.database.prepare('SELECT password FROM users WHERE email=?').get('a@example.com').password, password);
-    assert.equal((await call('/auth/register', { method: 'POST', body: { email: 'a@example.com', password } })).status, 400);
+    assert.equal((await call('/auth/register', { method: 'POST', body: { email: 'a@example.com', password, firstName: 'Ana', lastName: 'Silva' } })).status, 400);
     assert.equal((await call('/auth/login', { method: 'POST', body: { email: 'a@example.com', password: 'wrong' } })).status, 401);
     assert.equal((await call('/api/clients', { method: 'POST', cookie, body: { name: 'Meu cliente' } })).status, 201);
     assert.equal((await call('/api/expenses', { method: 'POST', cookie, body: { id: 'receipt-test', date: '2026-09-17', type: 'normal', category: 'Hotel', amount: 100, receiptName: 'foto.jpg', receiptData: 'data:image/jpeg;base64,/9j/2Q==' } })).status, 201);
     assert.equal((await call('/admin', { cookie, headers: { 'oai-authenticated-user-email': 'admin@example.com' } })).status, 403);
-    const signupB = await call('/auth/register', { method: 'POST', body: { email: 'b@example.com', password } });
+    const signupB = await call('/auth/register', { method: 'POST', body: { email: 'b@example.com', password, firstName: 'Bruno', lastName: 'Souza' } });
     const cookieB = signupB.headers.get('set-cookie').split(';')[0];
     assert.deepEqual((await (await call('/api/state', { cookie: cookieB })).json()).clients, []);
     assert.equal((await call('/api/receipts/receipt-test', { cookie: cookieB })).status, 404);
@@ -47,7 +47,7 @@ test('VPS: registration, sessions, isolation, authorization, persistence and log
     assert.equal(Buffer.from(await receipt.arrayBuffer()).toString('base64'), '/9j/2Q==');
     assert.equal((await call('/auth/logout', { method: 'POST', cookie })).status, 200);
     assert.equal((await call('/api/state', { cookie })).status, 401);
-    const login = await call('/auth/login', { method: 'POST', body: { email: 'a@example.com', password } });
+    const login = await call('/auth/login', { method: 'POST', body: { email: 'a@example.com', password, firstName: 'Ana', lastName: 'Silva' } });
     assert.equal(login.status, 200);
     const newCookie = login.headers.get('set-cookie').split(';')[0];
     await setPassword(instance.database, 'a@example.com', password + 'new');
@@ -68,7 +68,7 @@ test('VPS: same-origin browser on proxy alias can register, save expenses and lo
   await new Promise(resolve => instance.server.listen(0, '127.0.0.1', resolve));
   const endpoint = `http://127.0.0.1:${instance.server.address().port}`;
   const headers = { Host: 'www.risti.com.br', Origin: 'https://www.risti.com.br', 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' };
-  const account = { email: 'alias@example.com', password: 'Teste-seguro-1234' };
+  const account = { email: 'alias@example.com', password: 'Teste-seguro-1234', firstName: 'Ana', lastName: 'Silva' };
   const call = (path, body, extra = {}) => new Promise((resolve, reject) => {
     const req = httpRequest(endpoint + path, { method: 'POST', headers: { ...headers, ...extra } }, res => {
       const chunks = [];
@@ -104,6 +104,39 @@ test('VPS: same-origin browser on proxy alias can register, save expenses and lo
       assert.equal((await call('/api/expenses', expense, { Cookie: activeCookie, ...hostile })).status, 403);
     }
     assert.equal(instance.database.prepare('SELECT id FROM users WHERE email=?').get('blocked@example.com'), undefined);
+  } finally {
+    await new Promise(resolve => instance.server.close(resolve));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('VPS: immutable account names, legacy profile and per-expense mileage rates', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'expenses-profile-'));
+  const origin = 'https://risti.com.br';
+  const instance = createVpsServer({ directory, origin });
+  await new Promise(resolve => instance.server.listen(0, '127.0.0.1', resolve));
+  const endpoint = `http://127.0.0.1:${instance.server.address().port}`;
+  const call = (path, body, cookie, method = 'POST') => fetch(endpoint + path, { method, headers: { Origin: origin, 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const account = { email: 'profile@example.com', password: 'Teste-seguro-1234', firstName: 'João', lastName: 'da Silva' };
+  try {
+    assert.equal((await call('/auth/register', { ...account, firstName: '' })).status, 400);
+    const signup = await call('/auth/register', account);
+    assert.equal(signup.status, 200);
+    const cookie = signup.headers.get('set-cookie').split(';')[0];
+    const state = await (await call('/api/state', undefined, cookie, 'GET')).json();
+    assert.equal(state.user.firstName, 'João');
+    assert.equal(state.report.consultant, 'João da Silva');
+    assert.equal((await call('/auth/profile', { firstName: 'Outra', lastName: 'Pessoa' }, cookie)).status, 409);
+    const report = await (await call('/api/report', { reportMonth: '2026-09', consultant: 'Nome forjado', kmRate: '1.15' }, cookie, 'PUT')).json();
+    assert.equal(report.report.consultant, 'João da Silva');
+    const result = await (await call('/api/expenses', { id: 'car-rate', type: 'car', date: '2026-09-17', km: 100, kmRate: 1.27, carExtra: 5, client: 'Cliente', project: 'Projeto' }, cookie)).json();
+    assert.equal(result.expense.kmRate, 1.27);
+    await setPassword(instance.database, 'legacy@example.com', account.password, true);
+    const login = await call('/auth/login', { email: 'legacy@example.com', password: account.password });
+    const legacyCookie = login.headers.get('set-cookie').split(';')[0];
+    assert.equal((await call('/auth/profile', { firstName: 'Maria', lastName: 'Souza' }, legacyCookie)).status, 200);
+    assert.equal((await call('/auth/profile', { firstName: 'Outra', lastName: 'Pessoa' }, legacyCookie)).status, 409);
+    assert.equal((await (await call('/api/state', undefined, legacyCookie, 'GET')).json()).report.consultant, 'Maria Souza');
   } finally {
     await new Promise(resolve => instance.server.close(resolve));
     rmSync(directory, { recursive: true, force: true });
