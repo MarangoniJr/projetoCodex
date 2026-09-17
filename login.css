@@ -4,6 +4,8 @@ button, input { font: inherit; }
 .login-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 40px 24px; background: radial-gradient(ellipse at 50% 0%, #30a7d5 0%, transparent 42%), radial-gradient(ellipse at 15% 100%, #1173b1 0%, transparent 60%), linear-gradient(180deg, #edf2f8 0%, #76c2d4 42%, #2c80ac 100%); }
 .login-card { width: min(300px, 100%); }
 .brand-logo { display: block; width: 100%; height: auto; margin: 0 auto 28px; }
+.product-title { margin: 0 0 26px; text-align: center; color: #073b61; font-size: clamp(1.6rem, 7vw, 1.9rem); font-weight: 400; letter-spacing: -.04em; line-height: 1.2; }
+.product-title span { font-weight: 800; color: #07518a; letter-spacing: -.03em; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #formTitle:not(.visually-hidden) { font-size: 1.25rem; margin: 0 0 20px; text-align: center; }
 #loginForm { display: grid; gap: 16px; }

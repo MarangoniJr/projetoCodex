@@ -187,3 +187,15 @@ docker compose --env-file .env.vps -p reembolso-vps up -d --build app
 ```
 
 Acesse novamente pelo endereço configurado. Não desative a validação de origem para contornar o erro.
+
+### Acesso pelo domínio do navegador (atualização do login)
+
+O servidor agora reconhece também requisições que o navegador identifica como same-origin, quando Origin e Host correspondem exatamente e o protocolo coincide com APP_ORIGIN. Isso permite cadastro, login e gravação de despesas por um alias servido pelo proxy, como o domínio com www. O proxy deve preservar Host (proxy_set_header Host $http_host; no Nginx, inclusive para portas não padrão). Origens externas, portas divergentes e requisições cross-site continuam bloqueadas. O acesso HTTPS continua necessário quando APP_ORIGIN usa HTTPS.
+
+Após extrair o pacote atualizado na pasta existente, aplique a correção com:
+
+```bash
+docker compose --env-file .env.vps -p reembolso-vps up -d --build app
+```
+
+Esse comando mantém o volume de contas e despesas existente.

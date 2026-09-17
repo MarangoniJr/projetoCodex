@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVpsServer } from '../server/vps.js';
 import { setPassword } from '../server/auth.js';
+import { request as httpRequest } from 'node:http';
 
 test('VPS: registration, sessions, isolation, authorization, persistence and logout', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'expenses-test-'));
@@ -59,4 +60,52 @@ test('VPS: registration, sessions, isolation, authorization, persistence and log
     for (let i = 0; i < 10; i++) await call('/auth/login', { method: 'POST', body: { email: 'none@example.com', password } });
     assert.equal((await call('/auth/login', { method: 'POST', body: { email: 'none@example.com', password } })).status, 429);
   } finally { await close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('VPS: same-origin browser on proxy alias can register, save expenses and log in', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'expenses-alias-'));
+  const instance = createVpsServer({ directory, origin: 'https://risti.com.br' });
+  await new Promise(resolve => instance.server.listen(0, '127.0.0.1', resolve));
+  const endpoint = `http://127.0.0.1:${instance.server.address().port}`;
+  const headers = { Host: 'www.risti.com.br', Origin: 'https://www.risti.com.br', 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' };
+  const account = { email: 'alias@example.com', password: 'Teste-seguro-1234' };
+  const call = (path, body, extra = {}) => new Promise((resolve, reject) => {
+    const req = httpRequest(endpoint + path, { method: 'POST', headers: { ...headers, ...extra } }, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve(new Response(Buffer.concat(chunks), { status: res.statusCode, headers: res.headers })));
+    });
+    req.on('error', reject);
+    req.end(JSON.stringify(body));
+  });
+  try {
+    const signup = await call('/auth/register', account);
+    assert.equal(signup.status, 200);
+    const cookie = signup.headers.get('set-cookie').split(';')[0];
+    assert.match(signup.headers.get('set-cookie'), /Secure/);
+    const expense = { id: 'alias-expense', date: '2026-09-17', type: 'normal', category: 'Hotel', amount: 100 };
+    assert.equal((await call('/api/expenses', expense, { Cookie: cookie })).status, 201);
+    const state = await fetch(endpoint + '/api/state', { headers: { ...headers, Cookie: cookie } });
+    assert.equal((await state.json()).expenses.length, 1);
+    assert.equal((await call('/auth/logout', {}, { Cookie: cookie })).status, 200);
+    const login = await call('/auth/login', account);
+    assert.equal(login.status, 200);
+    const activeCookie = login.headers.get('set-cookie').split(';')[0];
+    for (const hostile of [
+      { Origin: 'https://evil.example' },
+      { 'Sec-Fetch-Site': 'cross-site' },
+      { 'Sec-Fetch-Site': 'same-site' },
+      { 'Sec-Fetch-Site': '' },
+      { Origin: 'http://www.risti.com.br' },
+      { Origin: 'null' },
+      { Origin: 'https://www.risti.com.br:8443' },
+    ]) {
+      assert.equal((await call('/auth/register', { ...account, email: 'blocked@example.com' }, hostile)).status, 403);
+      assert.equal((await call('/api/expenses', expense, { Cookie: activeCookie, ...hostile })).status, 403);
+    }
+    assert.equal(instance.database.prepare('SELECT id FROM users WHERE email=?').get('blocked@example.com'), undefined);
+  } finally {
+    await new Promise(resolve => instance.server.close(resolve));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

@@ -7,12 +7,26 @@ import { initAuth, authService } from './auth.js';
 import { handleApi } from './api.js';
 import { isAdmin } from './admin.js';
 
+// The reverse proxy preserves Host. Browser Fetch Metadata confirms that the
+// page and API share an origin, even when APP_ORIGIN names a different alias.
+function browserOrigin(headers, configuredOrigin) {
+  const value = headers.get('origin');
+  if (value === configuredOrigin) return configuredOrigin;
+  if (headers.get('sec-fetch-site') !== 'same-origin' || !value) return configuredOrigin;
+  try {
+    const candidate = new URL(value);
+    const configured = new URL(configuredOrigin);
+    if (candidate.origin !== value || candidate.host !== headers.get('host')) return configuredOrigin;
+    if (candidate.protocol !== configured.protocol) return configuredOrigin;
+    return candidate.origin;
+  } catch { return configuredOrigin; }
+}
+
 export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data', origin = process.env.APP_ORIGIN || 'http://localhost:3000', adminEmail = process.env.ADMIN_EMAIL || '' } = {}) {
   if (new URL(origin).origin !== origin) throw new Error('APP_ORIGIN deve conter apenas protocolo e domínio, sem barra final.');
   if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) throw new Error('Produção exige APP_ORIGIN com HTTPS.');
   const storage = openStorage(directory);
   initAuth(storage.database);
-  const auth = authService(storage.database, origin, adminEmail);
   const env = { ...storage, ADMIN_EMAIL: adminEmail };
   const assets = new Map();
   for (const file of ['index.html', 'app.js', 'styles.css', 'admin.html', 'admin.js', 'admin.css', 'icon.svg', 'manifest.webmanifest', 'service-worker.js', 'login.html', 'login.js', 'login.css', 'vps-client.js']) {
@@ -27,15 +41,17 @@ export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data
       const path = url.pathname;
       const headers = new Headers();
       for (const [key, value] of Object.entries(req.headers)) if (value && !key.toLowerCase().startsWith('oai-')) headers.set(key, String(value));
+      const requestOrigin = browserOrigin(headers, origin);
+      const auth = authService(storage.database, requestOrigin, adminEmail);
       // Identity is derived exclusively from our session, never forwarded client headers.
-      let request = new Request(origin + path + url.search, { method: req.method, headers });
+      let request = new Request(requestOrigin + path + url.search, { method: req.method, headers });
       const user = auth.user(request);
       let response;
       if (!user && !publicPaths.has(path) && !path.startsWith('/auth/')) {
         response = path.startsWith('/api/') ? Response.json({ error: 'Sessão encerrada. Entre novamente na sua conta.' }, { status: 401 }) : new Response(null, { status: 303, headers: { Location: '/login' } });
       } else {
         if (!['GET', 'HEAD'].includes(req.method)) {
-          if (headers.get('origin') !== origin || headers.get('sec-fetch-site') === 'cross-site') {
+          if (headers.get('origin') !== requestOrigin || headers.get('sec-fetch-site') === 'cross-site') {
             response = Response.json({ error: 'Origem não autorizada.' }, { status: 403 });
           } else {
             const chunks = []; let size = 0;
@@ -45,7 +61,7 @@ export function createVpsServer({ directory = process.env.DATA_DIR || '.vps-data
               if (size > limit) { const error = new Error('Request too large'); error.status = 413; throw error; }
               chunks.push(chunk);
             }
-            request = new Request(origin + path + url.search, { method: req.method, headers, body: Buffer.concat(chunks) });
+            request = new Request(requestOrigin + path + url.search, { method: req.method, headers, body: Buffer.concat(chunks) });
           }
         }
         if (!response) {
