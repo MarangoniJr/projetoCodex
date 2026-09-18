@@ -4,8 +4,8 @@
   "description": "Controle despesas de viagem e exporte relatórios para reembolso.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f4f6f5",
-  "theme_color": "#126855",
+  "background_color": "#f2f7fb",
+  "theme_color": "#1674ad",
   "icons": [
     {
       "src": "icon.svg",

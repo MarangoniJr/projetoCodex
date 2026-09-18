@@ -1,15 +1,16 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f5;
+  --bg: #f2f7fb;
   --surface: #ffffff;
-  --surface-strong: #eef4f2;
-  --text: #17211e;
-  --muted: #64736e;
-  --line: #d9e1dd;
-  --brand: #126855;
-  --brand-dark: #0c4a3d;
+  --surface-strong: #e8f4fb;
+  --text: #183447;
+  --muted: #586f80;
+  --line: #d4e3ed;
+  --brand: #1674ad;
+  --brand-dark: #105580;
+  --brand-accent: #20a8da;
   --danger: #b42318;
-  --shadow: 0 18px 45px rgba(23, 33, 30, 0.1);
+  --shadow: 0 12px 32px rgba(16, 85, 128, 0.07);
 }
 
 .catalog-picker { display: flex; gap: 8px; align-items: stretch; }
@@ -54,8 +55,8 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 18px clamp(16px, 5vw, 40px);
-  background: rgba(244, 246, 245, 0.92);
-  border-bottom: 1px solid var(--line);
+  background: linear-gradient(110deg, #ffffff, #e8f4fb);
+  border-bottom: 3px solid var(--brand-accent);
   backdrop-filter: blur(16px);
 }
 
@@ -172,7 +173,7 @@ form,
 label {
   display: grid;
   gap: 6px;
-  color: #34423e;
+  color: #294e66;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -183,7 +184,7 @@ textarea {
   width: 100%;
   min-height: 46px;
   padding: 11px 12px;
-  border: 1px solid #c8d2ce;
+  border: 1px solid #bdd3e2;
   border-radius: 8px;
   background: #fff;
   color: var(--text);
@@ -201,7 +202,7 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--brand);
-  outline: 3px solid rgba(18, 104, 85, 0.16);
+  outline: 3px solid rgba(32, 168, 218, 0.2);
 }
 
 .primary-button,
@@ -265,7 +266,7 @@ textarea:focus {
   margin-bottom: 8px;
   padding: 5px 8px;
   border-radius: 999px;
-  background: #e8f3ef;
+  background: var(--surface-strong);
   color: var(--brand-dark);
   font-size: 0.78rem;
   font-weight: 800;
@@ -300,8 +301,16 @@ textarea:focus {
 .text-button {
   padding: 0 12px;
   background: transparent;
-  color: var(--danger);
+  color: var(--brand);
 }
+
+.delete-button, #removeReceipt { color: var(--danger); }
+.app-header h1, .section-title h2, #profileTitle, #catalogTitle { color: var(--brand-dark); }
+.app-header .eyebrow { color: var(--brand); }
+.entry-panel { border-top: 4px solid var(--brand-accent); }
+.primary-button:hover, .photo-button:not(.secondary):hover { background: var(--brand-dark); }
+.secondary-button:hover, .account-dropdown a:hover { background: #d7edf9; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
 
 .empty-state {
   padding: 24px 16px;
@@ -334,7 +343,7 @@ textarea:focus {
 .controls-panel {
   padding: 24px;
   border-radius: 14px;
-  box-shadow: 0 6px 24px rgba(23, 33, 30, 0.05);
+  box-shadow: 0 6px 24px rgba(16, 85, 128, 0.05);
 }
 
 .controls-panel .section-title {
@@ -413,9 +422,9 @@ textarea:focus {
   display: none !important;
 }
 
-.connection-status { padding: 12px 16px; border-radius: 8px; background: #e8f3ef; color: var(--brand-dark); line-height: 1.5; }
+.connection-status { padding: 12px 16px; border-radius: 8px; background: var(--surface-strong); color: var(--brand-dark); line-height: 1.5; }
 .connection-status.error { color: var(--danger); background: #fff0ee; }
-.receipt-picker { margin: 0; padding: 16px; border: 1px dashed #a9bdb4; border-radius: 10px; }
+.receipt-picker { margin: 0; padding: 16px; border: 1px dashed #8dbdd9; border-radius: 10px; }
 .receipt-picker legend { padding: 0 6px; font-weight: 700; }
 .receipt-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .photo-button { position: relative; padding: 14px 20px; border-radius: 8px; color: #fff; background: var(--brand); cursor: pointer; }
@@ -434,7 +443,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .field-hint { color: var(--muted); font-size: .9rem; line-height: 1.5; }
 .expense-context { color: var(--brand-dark); font-weight: 600; overflow-wrap: anywhere; }
 #projectTotals p { overflow-wrap: anywhere; }
-dialog { width: min(520px, calc(100% - 32px)); max-height: 90vh; overflow: auto; border: 1px solid #a9bdb4; border-radius: 12px; padding: 24px; }
+dialog { width: min(520px, calc(100% - 32px)); max-height: 90vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
 dialog::backdrop { background: rgb(0 0 0 / 45%); }
 #classificationForm { display: grid; gap: 16px; }
 #classificationStatus { color: var(--danger); }
@@ -452,7 +461,7 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 @media (max-width: 720px) { .export-filters, .controls-panel .toolbar { grid-template-columns: 1fr; } }
 
 .controls-panel { padding: 28px; }
-.export-filters { padding: 20px; background: #f5f8f7; border: 1px solid var(--line); border-radius: 10px; }
+.export-filters { padding: 20px; background: #f2f8fc; border: 1px solid var(--line); border-radius: 10px; }
 .export-filters input, .export-filters select { background: #fff; min-height: 48px; }
 .week-filter { margin: 12px 0 20px; }
 .week-filter[open] { padding-bottom: 12px; }
